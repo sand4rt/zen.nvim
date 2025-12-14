@@ -29,27 +29,33 @@ return {
   "sand4rt/zen.nvim",
   lazy = false,
   opts = {
-    width = 148,
-    min_integration_width = 46,
-    integrations = {
-      { position = "top", filetype = "man" },
-      { position = "top", filetype = "help" },
-      { position = "top", filetype = "fugitive" },
-
-      { position = "right", filetype = "copilot-chat" },
-      { position = "right", filetype = "neotest-summary" },
-      { position = "right", filetype = { "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" } },
-
-      { position = "bottom", filetype = "dap-repl" },
-      { position = "bottom", filetype = "qf" },
-      { position = "bottom", filetype = "trouble" },
-      { position = "bottom", filetype = "noice" }, -- noice opens large notifications in a buffer
-
-      { position = "left", filetype = "fugitiveblame" },
-      { position = "left", filetype = "fyler" },
-      { position = "left", filetype = "neotree" },
-      { position = "left", filetype = "dbui" },
-      { position = "left", filetype = { "undotree", "diff" } },
+    main = {
+      width = 148, -- or vim.wo.colorcolumn
+    };
+    top = {
+      { filetype = "man" },
+      { filetype = "help" },
+      { filetype = "fugitive" },
+    },
+    right = {
+      min_width = 46,
+      { filetype = "copilot-chat" },
+      { filetype = "neotest-summary" },
+      { filetype = { "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" } },
+    },
+    bottom = {
+      { filetype = "dap-repl" },
+      { filetype = "qf" },
+      { filetype = "trouble" },
+      { filetype = "noice" }, -- noice opens large notifications in a buffer
+    },
+    left = {
+      min_width = 46,
+      { filetype = "fugitiveblame" },
+      { filetype = "fyler" },
+      { filetype = "neotree" },
+      { filetype = "dbui" },
+      { filetype = { "undotree", "diff" } },
     },
   },
 }

@@ -1,12 +1,23 @@
---- @type {
----     width: number;
----     min_integration_width: number;
----     integrations: {
----         position: "top" | "left" | "right" | "bottom";
----         filetype: string | string[];
----     }[];
---- }
-local opts = {}
+--- @alias Filetype string|string[]
+
+--- @class Integration
+--- @field filetype Filetype
+
+--- @class Config
+--- @field main { width: number };
+--- @field top Integration[];
+--- @field right { min_width: number; [number]: Integration[]};
+--- @field bottom Integration[];
+--- @field left { min_width: number; [number]: Integration[]};
+
+--- @type Config
+local opts = {
+	main = { width = 148 },
+	top = {},
+	right = { min_width = 46 },
+	bottom = {},
+	left = { min_width = 46 },
+}
 local state = {
 	[vim.api.nvim_get_current_tabpage()] = { left = nil, right = nil },
 }
@@ -19,7 +30,7 @@ local function create_window(position)
 	end
 
 	local win_id = vim.api.nvim_get_current_win()
-	vim.api.nvim_win_set_width(win_id, math.floor((vim.o.columns - opts.width) / 2))
+	vim.api.nvim_win_set_width(win_id, math.floor((vim.o.columns - opts.main.width) / 2))
 	vim.api.nvim_set_option_value("winfixwidth", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("winfixbuf", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("cursorline", false, { scope = "local", win = win_id })
@@ -35,7 +46,7 @@ local function create_window(position)
 end
 
 ---@param target string
----@param filetype string|string[]
+---@param filetype Filetype
 ---@return boolean
 local function is_filetype(target, filetype)
 	if type(filetype) == "string" then
@@ -66,6 +77,8 @@ local function close_side_buffer(position)
 	end
 end
 
+---@param filetypes string[]
+---@return boolean
 local function filetypes_visible(filetypes)
 	for _, win_id in ipairs(vim.api.nvim_list_wins()) do
 		local buf_id = vim.api.nvim_win_get_buf(win_id)
@@ -78,28 +91,36 @@ local function filetypes_visible(filetypes)
 	return false
 end
 
-local function remove_file_type(file_types, type_to_remove)
-	for i, file_type in ipairs(file_types) do
-		if file_type == type_to_remove then
-			table.remove(file_types, i)
+---@param filetypes string[]
+---@param type_to_remove string
+local function remove_file_type(filetypes, type_to_remove)
+	for i, filetype in ipairs(filetypes) do
+		if filetype == type_to_remove then
+			table.remove(filetypes, i)
 			break
 		end
 	end
 end
 
+---@param buf number
+---@return boolean
 local function is_buff_integration(buf)
 	local filetype = vim.api.nvim_get_option_value("filetype", { buf = buf })
 	if filetype == "zen-left" or filetype == "zen-right" then
 		return true
 	end
-	for _, integration in pairs(opts.integrations) do
-		if is_filetype(filetype, integration.filetype) then
-			return true
+	for _, position in ipairs({ "left", "right" }) do
+		for _, integration in ipairs(opts[position] or {}) do
+			---@diagnostic disable-next-line: undefined-field
+			if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
+				return true
+			end
 		end
 	end
 	return false
 end
 
+---@return table
 local function get_editable_files()
 	local editable_files = {}
 	local windows = vim.api.nvim_list_wins()
@@ -112,10 +133,13 @@ local function get_editable_files()
 	return editable_files
 end
 
+---@param win_id number
+---@return boolean
 local function is_popup_window(win_id)
 	return vim.api.nvim_win_get_config(win_id).relative ~= ""
 end
 
+---@return table
 local function get_vsplits()
 	local vsplits = {}
 	local windows = vim.api.nvim_list_wins()
@@ -132,6 +156,7 @@ local function get_vsplits()
 	return vsplits
 end
 
+---@return boolean
 local function is_hsplit(buf)
 	local win_id = vim.fn.bufwinid(buf)
 	local width = vim.api.nvim_win_get_width(win_id)
@@ -139,16 +164,16 @@ local function is_hsplit(buf)
 	return width > height
 end
 
+---@param position "top" | "right" | "bottom" | "left"
+---@return boolean
 local function is_integration_open(position)
-	for _, integration in pairs(opts.integrations) do
-		if integration.position == position then
-			for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-				if
-					vim.api.nvim_buf_is_loaded(buf)
-					and is_filetype(vim.api.nvim_get_option_value("filetype", { buf = buf }), integration.filetype)
-				then
-					return true
-				end
+	for _, integration in pairs(opts[position]) do
+		for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+			if
+				vim.api.nvim_buf_is_loaded(buf)
+				and is_filetype(vim.api.nvim_get_option_value("filetype", { buf = buf }), integration.filetype)
+			then
+				return true
 			end
 		end
 	end
@@ -176,7 +201,7 @@ local function adjust_top_bottom_window_hack(target_window, position)
 end
 
 local function resize_side_buffers()
-	local new_width = math.floor((vim.o.columns - opts.width) / 2)
+	local new_width = math.floor((vim.o.columns - opts.main.width) / 2)
 	local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
 	if left then
 		vim.api.nvim_win_set_width(get_side_buffer("left"), new_width)
@@ -197,11 +222,13 @@ local function close(filetype)
 	end
 end
 
+---@param options Config
 local function setup(options)
-	-- Default splitting will cause your main splits to jump when opening an edgebar.
+	-- Default splitting will cause your main splits to jump when opening an integration.
 	-- To prevent this, set `splitkeep` to either `screen` or `topline`.
 	vim.opt.splitkeep = "screen"
 
+	---@type Config
 	opts = vim.tbl_extend("force", opts, options or {})
 
 	vim.api.nvim_create_autocmd("CursorMoved", {
@@ -209,17 +236,28 @@ local function setup(options)
 		callback = function(args)
 			if is_buff_integration(args.buf) then
 				local buf_info = vim.fn.getbufinfo(args.buf)
-				local new_width = math.max(opts.min_integration_width, math.floor((vim.o.columns - opts.width) / 2))
-				vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
+
+				local filetype = vim.api.nvim_get_option_value("filetype", { buf = args.buf })
+				for _, position in ipairs({ "right", "left" }) do
+					for _, integration in pairs(opts[position]) do
+						---@diagnostic disable-next-line: undefined-field
+						if type(integration) == "table" and integration.filetype == filetype then
+							local new_width =
+								math.max(opts[position].min_width, math.floor((vim.o.columns - opts.main.width) / 2))
+							vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
+							return
+						end
+					end
+				end
 			end
 		end,
-		desc = "HACK: adjust the integration with when opening",
+		desc = "HACK: adjust the integration when opening",
 	})
 
 	vim.api.nvim_create_autocmd({ "VimEnter", "TabNew" }, {
 		callback = function()
 			-- disable when window is too small
-			if vim.o.columns <= opts.width then
+			if vim.o.columns <= opts.main.width then
 				return
 			end
 
@@ -256,8 +294,11 @@ local function setup(options)
 			if vim.tbl_count(get_editable_files()) == 1 and not is_buff_integration(args.buf) then
 				close_side_buffer("left")
 				close_side_buffer("right")
-				for _, integration in pairs(opts.integrations) do
-					close(integration.filetype)
+
+				for _, position in ipairs({ "top", "right", "bottom", "left" }) do
+					for _, integration in pairs(opts[position]) do
+						close(integration.filetype)
+					end
 				end
 			end
 		end,
@@ -271,7 +312,7 @@ local function setup(options)
 			end
 
 			-- close when window is too small
-			if vim.o.columns <= opts.width then
+			if vim.o.columns <= opts.main.width then
 				close_side_buffer("left")
 				close_side_buffer("right")
 				return
@@ -298,7 +339,7 @@ local function setup(options)
 		pattern = "*",
 		callback = function(args)
 			-- do not recreate when window is too small
-			if vim.o.columns <= opts.width then
+			if vim.o.columns <= opts.main.width then
 				return
 			end
 			local win_id = tonumber(args.match)
@@ -336,14 +377,11 @@ local function setup(options)
 				vim.cmd("wincmd h")
 			end
 
-			for _, integration in pairs(opts.integrations) do
-				local target_window = get_window_by_filetype(integration.filetype)
-				if integration.position == "top" then
-					adjust_top_bottom_window_hack(target_window, "K")
-				end
-				if integration.position == "bottom" then
-					adjust_top_bottom_window_hack(target_window, "J")
-				end
+			for _, integration in pairs(opts.top) do
+				adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "K")
+			end
+			for _, integration in pairs(opts.bottom) do
+				adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "J")
 			end
 			resize_side_buffers()
 		end,
@@ -370,24 +408,32 @@ local function setup(options)
 				return
 			end
 
-			for _, integration in pairs(opts.integrations) do
-				if is_filetype(filetype, integration.filetype) then
-					close_side_buffer(integration.position)
-					for _, integrate in pairs(opts.integrations) do
-						if
-							integrate.position == integration.position and not is_filetype(filetype, integrate.filetype)
-						then
-							close(integrate.filetype)
+			for _, position in ipairs({ "top", "right", "bottom", "left" }) do
+				for _, integration in pairs(opts[position]) do
+					if is_filetype(filetype, integration.filetype) then
+						close_side_buffer(position)
+						for _, position_inner in ipairs({ "top", "right", "bottom", "left" }) do
+							for _, integration_inner in pairs(opts[position_inner]) do
+								if
+									position_inner == position
+									and not is_filetype(filetype, integration_inner.filetype)
+								then
+									close(integration_inner.filetype)
+								end
+							end
 						end
 					end
 				end
+			end
 
-				local target_window = get_window_by_filetype(integration.filetype)
-				if integration.position == "top" and not is_hsplit(args.buf) then
-					adjust_top_bottom_window_hack(target_window, "K")
+			for _, integration in pairs(opts.top) do
+				if not is_hsplit(args.buf) then
+					adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "K")
 				end
-				if integration.position == "bottom" and not is_hsplit(args.buf) then
-					adjust_top_bottom_window_hack(target_window, "J")
+			end
+			for _, integration in pairs(opts.bottom) do
+				if not is_hsplit(args.buf) then
+					adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "J")
 				end
 			end
 			resize_side_buffers()
