@@ -170,7 +170,8 @@ local function is_integration_open(position)
 	for _, integration in pairs(opts[position]) do
 		for _, buf in ipairs(vim.api.nvim_list_bufs()) do
 			if
-				vim.api.nvim_buf_is_loaded(buf)
+				type(integration) == "table"
+				and vim.api.nvim_buf_is_loaded(buf)
 				and is_filetype(vim.api.nvim_get_option_value("filetype", { buf = buf }), integration.filetype)
 			then
 				return true
@@ -297,7 +298,9 @@ local function setup(options)
 
 				for _, position in ipairs({ "top", "right", "bottom", "left" }) do
 					for _, integration in pairs(opts[position]) do
-						close(integration.filetype)
+						if type(integration) == "table" then
+							close(integration.filetype)
+						end
 					end
 				end
 			end
@@ -410,12 +413,13 @@ local function setup(options)
 
 			for _, position in ipairs({ "top", "right", "bottom", "left" }) do
 				for _, integration in pairs(opts[position]) do
-					if is_filetype(filetype, integration.filetype) then
+					if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
 						close_side_buffer(position)
 						for _, position_inner in ipairs({ "top", "right", "bottom", "left" }) do
 							for _, integration_inner in pairs(opts[position_inner]) do
 								if
 									position_inner == position
+									and type(integration_inner) == "table"
 									and not is_filetype(filetype, integration_inner.filetype)
 								then
 									close(integration_inner.filetype)
