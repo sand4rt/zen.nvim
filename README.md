@@ -31,8 +31,8 @@ return {
   opts = {
     main = {
       width = 148, -- or vim.wo.colorcolumn
-    };
-    -- TIP: find a buffer's filetype with :lua vim.notify(vim.bo.filetype)
+    },
+    -- TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
     top = {
       { filetype = "man" },
       { filetype = "help" },
