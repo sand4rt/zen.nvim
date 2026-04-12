@@ -1,1 +1,13 @@
-/nix/store/pzl0ng6xixz28g7jalnml2aic07f8pa8-luarc.json
+{
+  "diagnostics": {
+    "globals": [
+      "dofile"
+    ]
+  },
+  "workspace": {
+    "library": [
+      "$VIMRUNTIME",
+      "deps/mini.nvim"
+    ]
+  }
+}
