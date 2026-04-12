@@ -4,14 +4,14 @@
 --- @field filetype Filetype
 
 --- @class Config
---- @field main? { width?: number }
+--- @field main? { width?: number | fun(): number; }
 --- @field top? Integration[]
 --- @field right? { min_width?: number; [number]: Integration[]}
 --- @field bottom? Integration[]
 --- @field left? { min_width?: number; [number]: Integration[]}
 
 --- @class ConfigOptions
---- @field main { width: number }
+--- @field main { width: number | fun(): number; }
 --- @field top Integration[]
 --- @field right { min_width: number; [number]: Integration[]}
 --- @field bottom Integration[]
@@ -29,6 +29,16 @@ local state = {
 	[vim.api.nvim_get_current_tabpage()] = { left = nil, right = nil },
 }
 
+--- Resolves the configured main width.
+---@return number
+local function get_main_width()
+	local width = opts.main.width
+	if type(width) == "function" then
+		return width()
+	end
+	return width
+end
+
 local function create_window(position)
 	if position == "left" then
 		vim.cmd("topleft vnew")
@@ -37,7 +47,7 @@ local function create_window(position)
 	end
 
 	local win_id = vim.api.nvim_get_current_win()
-	vim.api.nvim_win_set_width(win_id, math.floor((vim.o.columns - opts.main.width) / 2))
+	vim.api.nvim_win_set_width(win_id, math.floor((vim.o.columns - get_main_width()) / 2))
 	vim.api.nvim_set_option_value("winfixwidth", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("winfixbuf", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("cursorline", false, { scope = "local", win = win_id })
@@ -64,6 +74,7 @@ local function is_filetype(target, filetype)
 	return false
 end
 
+---@return number
 local function get_side_buffer(position)
 	local current_tabpage = vim.api.nvim_get_current_tabpage()
 	if state[current_tabpage] and state[current_tabpage][position] then
@@ -209,7 +220,7 @@ local function adjust_top_bottom_window_hack(target_window, position)
 end
 
 local function resize_side_buffers()
-	local new_width = math.floor((vim.o.columns - opts.main.width) / 2)
+	local new_width = math.floor((vim.o.columns - get_main_width()) / 2)
 	local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
 	if left then
 		vim.api.nvim_win_set_width(get_side_buffer("left"), new_width)
@@ -250,7 +261,7 @@ local function setup(options)
 					for _, integration in pairs(opts[position]) do
 						---@diagnostic disable-next-line: undefined-field
 						if type(integration) == "table" and integration.filetype == filetype then
-							local new_width = math.max(opts[position].min_width, math.floor((vim.o.columns - opts.main.width) / 2))
+							local new_width = math.max(opts[position].min_width, math.floor((vim.o.columns - get_main_width()) / 2))
 							vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
 							return
 						end
@@ -264,7 +275,7 @@ local function setup(options)
 	vim.api.nvim_create_autocmd({ "VimEnter", "TabNew" }, {
 		callback = function()
 			-- disable when window is too small
-			if vim.o.columns <= opts.main.width then
+			if vim.o.columns <= get_main_width() then
 				return
 			end
 
@@ -336,7 +347,7 @@ local function setup(options)
 			end
 
 			-- close when window is too small
-			if vim.o.columns <= opts.main.width then
+			if vim.o.columns <= get_main_width() then
 				close_side_buffer("left")
 				close_side_buffer("right")
 				return
@@ -363,7 +374,7 @@ local function setup(options)
 		pattern = "*",
 		callback = function(args)
 			-- do not recreate when window is too small
-			if vim.o.columns <= opts.main.width then
+			if vim.o.columns <= get_main_width() then
 				return
 			end
 			local win_id = tonumber(args.match)
