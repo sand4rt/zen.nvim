@@ -22,8 +22,9 @@ T["close side buffers on last main quit"] = function()
 
 	pcall(child.cmd, "q")
 
-	local RUNNING = -1
-	MiniTest.expect.equality(vim.fn.jobwait({ child.job.id })[1] ~= RUNNING, true)
+	local STOPPED = 0
+	local exit_code = vim.fn.jobwait({ child.job.id }, 1000)[1]
+	MiniTest.expect.equality(exit_code, STOPPED)
 end
 
 return T

@@ -4,18 +4,18 @@
 --- @field filetype Filetype
 
 --- @class Config
---- @field main { width: number }
---- @field top Integration[]
---- @field right { min_width: number; [number]: Integration[]}
---- @field bottom Integration[]
---- @field left { min_width: number; [number]: Integration[]}
-
---- @class ConfigOptions
 --- @field main? { width?: number }
 --- @field top? Integration[]
 --- @field right? { min_width?: number; [number]: Integration[]}
 --- @field bottom? Integration[]
 --- @field left? { min_width?: number; [number]: Integration[]}
+
+--- @class ConfigOptions
+--- @field main { width: number }
+--- @field top Integration[]
+--- @field right { min_width: number; [number]: Integration[]}
+--- @field bottom Integration[]
+--- @field left { min_width: number; [number]: Integration[]}
 
 --- @type ConfigOptions
 local opts = {
@@ -236,7 +236,7 @@ local function setup(options)
 	-- To prevent this, set `splitkeep` to either `screen` or `topline`.
 	vim.opt.splitkeep = "screen"
 
-	---@type Config
+	---@type ConfigOptions
 	opts = vim.tbl_extend("force", opts, options or {})
 
 	vim.api.nvim_create_autocmd("CursorMoved", {
