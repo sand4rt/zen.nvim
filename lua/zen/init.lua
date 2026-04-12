@@ -4,20 +4,20 @@
 --- @field filetype Filetype
 
 --- @class Config
---- @field main { width: number };
---- @field top Integration[];
---- @field right { min_width: number; [number]: Integration[]};
---- @field bottom Integration[];
---- @field left { min_width: number; [number]: Integration[]};
+--- @field main { width: number }
+--- @field top Integration[]
+--- @field right { min_width: number; [number]: Integration[]}
+--- @field bottom Integration[]
+--- @field left { min_width: number; [number]: Integration[]}
 
 --- @class ConfigOptions
---- @field main? { width?: number };
---- @field top? Integration[];
---- @field right? { min_width?: number; [number]?: Integration[]};
---- @field bottom? Integration[];
---- @field left? { min_width?: number; [number]?: Integration[]};
+--- @field main? { width?: number }
+--- @field top? Integration[]
+--- @field right? { min_width?: number; [number]: Integration[]}
+--- @field bottom? Integration[]
+--- @field left? { min_width?: number; [number]: Integration[]}
 
---- @type Config
+--- @type ConfigOptions
 local opts = {
 	main = { width = 148 },
 	top = {},
@@ -230,7 +230,7 @@ local function close(filetype)
 	end
 end
 
----@param options? ConfigOptions
+---@param options? Config
 local function setup(options)
 	-- Default splitting will cause your main splits to jump when opening an integration.
 	-- To prevent this, set `splitkeep` to either `screen` or `topline`.
