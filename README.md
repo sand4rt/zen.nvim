@@ -22,7 +22,8 @@
 
 ## Usage
 
-### Using [Lazy.nvim](https://github.com/folke/lazy.nvim)
+<details>
+<summary>Using [Lazy.nvim](https://github.com/folke/lazy.nvim)</summary>
 
 ```lua
 return {
@@ -61,6 +62,72 @@ return {
   },
 }
 ```
+
+</details>
+
+<details>
+<summary>Using [Nix NVF](https://github.com/NotAShelf/nvf)</summary>
+
+```nix
+programs.nvf.settings.vim.lazy.plugins = {
+  "zen.nvim" = {
+    package = pkgs.vimUtils.buildVimPlugin {
+      pname = "zen.nvim";
+      version = "1.0.0";
+      src = pkgs.fetchFromGitHub {
+        owner = "sand4rt";
+        repo = "zen.nvim";
+        rev = "main";
+        sha256 = "sha256-SVDf8K/eo8N9Hrx2rzMnW2uBDGWaJ8TZZNB/qdfJPfE=";
+      };
+    };
+    event = [ "BufEnter" ];
+    setupModule = "zen";
+    setupOpts = {
+      main = {
+        width = 148;
+      };
+      top = [
+        { filetype = "fugitive"; }
+        { filetype = "git"; }
+        { filetype = "man"; }
+        { filetype = "help"; }
+        { filetype = "gitcommit"; }
+      ];
+      right =
+        lib.generators.mkLuaInline # lua
+          ''
+            {
+              min_width = 46,
+              { filetype = "copilot-chat" },
+              { filetype = "neotest-summary" },
+              { filetype = { "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" } },
+            }
+          '';
+      bottom = [
+        { filetype = "dap-repl"; }
+        { filetype = "qf"; }
+        { filetype = "trouble"; }
+        { filetype = "noice"; } # noice opens large notifications in a buffer
+      ];
+      left =
+        lib.generators.mkLuaInline # lua
+          ''
+            {
+              min_width = 46,
+              { filetype = "fugitiveblame" },
+              { filetype = "fyler" },
+              { filetype = "neotree" },
+              { filetype = "dbui" },
+              { filetype = { "undotree", "diff" } },
+            }
+          '';
+    };
+  };
+};
+```
+
+</details>
 
 ## Credits to other plugins for inspiration
 
