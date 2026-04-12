@@ -4,7 +4,7 @@
 --- @field filetype Filetype
 
 --- @class Config
---- @field main? { width?: number | fun(): number; }
+--- @field main? { width: number | fun(): number; }
 --- @field top? Integration[]
 --- @field right? { min_width?: number; [number]: Integration[]}
 --- @field bottom? Integration[]
@@ -17,9 +17,10 @@
 --- @field bottom Integration[]
 --- @field left { min_width: number; [number]: Integration[]}
 
+local default_width = 148
 --- @type ConfigOptions
 local opts = {
-	main = { width = 148 },
+	main = { width = default_width },
 	top = {},
 	right = { min_width = 46 },
 	bottom = {},
@@ -29,12 +30,13 @@ local state = {
 	[vim.api.nvim_get_current_tabpage()] = { left = nil, right = nil },
 }
 
---- Resolves the configured main width.
----@return number
 local function get_main_width()
-	local width = opts.main.width
+	local width = opts.main and opts.main.width
 	if type(width) == "function" then
-		return width()
+		width = width()
+	end
+	if type(width) ~= "number" then
+		return default_width
 	end
 	return width
 end
