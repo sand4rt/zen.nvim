@@ -23,7 +23,7 @@
 ## Usage
 
 <details>
-<summary>Using [Lazy.nvim](https://github.com/folke/lazy.nvim)</summary>
+<summary>Using <a href="https://github.com/folke/lazy.nvim">Lazy.nvim</a></summary>
 
 ```lua
 return {
@@ -66,7 +66,7 @@ return {
 </details>
 
 <details>
-<summary>Using [Nix NVF](https://github.com/NotAShelf/nvf)</summary>
+<summary>Using <a href="https://github.com/NotAShelf/nvf">Nix NVF</a></summary>
 
 ```nix
 programs.nvf.settings.vim.lazy.plugins = {
@@ -77,7 +77,7 @@ programs.nvf.settings.vim.lazy.plugins = {
       src = pkgs.fetchFromGitHub {
         owner = "sand4rt";
         repo = "zen.nvim";
-        rev = "main";
+        rev = "v1.0.0";
         sha256 = "sha256-SVDf8K/eo8N9Hrx2rzMnW2uBDGWaJ8TZZNB/qdfJPfE=";
       };
     };
