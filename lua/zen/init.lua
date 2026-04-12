@@ -64,6 +64,7 @@ local function is_filetype(target, filetype)
 	return false
 end
 
+---@return integer
 local function get_side_buffer(position)
 	local current_tabpage = vim.api.nvim_get_current_tabpage()
 	if state[current_tabpage] and state[current_tabpage][position] then
@@ -250,8 +251,7 @@ local function setup(options)
 					for _, integration in pairs(opts[position]) do
 						---@diagnostic disable-next-line: undefined-field
 						if type(integration) == "table" and integration.filetype == filetype then
-							local new_width =
-								math.max(opts[position].min_width, math.floor((vim.o.columns - opts.main.width) / 2))
+							local new_width = math.max(opts[position].min_width, math.floor((vim.o.columns - opts.main.width) / 2))
 							vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
 							return
 						end
