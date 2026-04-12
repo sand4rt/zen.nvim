@@ -4,13 +4,20 @@
 --- @field filetype Filetype
 
 --- @class Config
---- @field main { width: number };
---- @field top Integration[];
---- @field right { min_width: number; [number]: Integration[]};
---- @field bottom Integration[];
---- @field left { min_width: number; [number]: Integration[]};
+--- @field main? { width?: number }
+--- @field top? Integration[]
+--- @field right? { min_width?: number; [number]: Integration[]}
+--- @field bottom? Integration[]
+--- @field left? { min_width?: number; [number]: Integration[]}
 
---- @type Config
+--- @class ConfigOptions
+--- @field main { width: number }
+--- @field top Integration[]
+--- @field right { min_width: number; [number]: Integration[]}
+--- @field bottom Integration[]
+--- @field left { min_width: number; [number]: Integration[]}
+
+--- @type ConfigOptions
 local opts = {
 	main = { width = 148 },
 	top = {},
@@ -223,13 +230,13 @@ local function close(filetype)
 	end
 end
 
----@param options Config
+---@param options? Config
 local function setup(options)
 	-- Default splitting will cause your main splits to jump when opening an integration.
 	-- To prevent this, set `splitkeep` to either `screen` or `topline`.
 	vim.opt.splitkeep = "screen"
 
-	---@type Config
+	---@type ConfigOptions
 	opts = vim.tbl_extend("force", opts, options or {})
 
 	vim.api.nvim_create_autocmd("CursorMoved", {
@@ -292,15 +299,30 @@ local function setup(options)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
 				return
 			end
-			if vim.tbl_count(get_editable_files()) == 1 and not is_buff_integration(args.buf) then
-				close_side_buffer("left")
-				close_side_buffer("right")
+			if is_buff_integration(args.buf) then
+				return
+			end
 
-				for _, position in ipairs({ "top", "right", "bottom", "left" }) do
-					for _, integration in pairs(opts[position]) do
-						if type(integration) == "table" then
-							close(integration.filetype)
-						end
+			local editable_count = 0
+			for _, win in ipairs(vim.api.nvim_list_wins()) do
+				if not is_popup_window(win) then
+					local buf = vim.api.nvim_win_get_buf(win)
+					if not is_buff_integration(buf) then
+						editable_count = editable_count + 1
+					end
+				end
+			end
+			if editable_count ~= 1 then
+				return
+			end
+
+			close_side_buffer("left")
+			close_side_buffer("right")
+
+			for _, position in ipairs({ "top", "right", "bottom", "left" }) do
+				for _, integration in pairs(opts[position]) do
+					if type(integration) == "table" then
+						close(integration.filetype)
 					end
 				end
 			end

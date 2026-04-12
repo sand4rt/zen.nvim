@@ -4,7 +4,7 @@ DEPS_DIR := $(CURDIR)/deps
 
 # Download mini.nvim if not present, then run all tests
 test: deps
-	nvim --headless -u tests/minimal_init.lua -c "lua MiniTest.run()" 2>&1
+	nvim --headless -u tests/scripts/minimal_init.lua -c "lua MiniTest.run()"
 
 # Clone mini.nvim into deps/
 deps:
