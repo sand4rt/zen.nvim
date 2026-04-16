@@ -10,7 +10,7 @@ local T = MiniTest.new_set({
 	},
 })
 
-T["close side buffers on last main quit"] = function()
+T["close zen side buffers on last main quit"] = function()
 	Helpers.expect.layout(child, {
 		type = "row",
 		children = {

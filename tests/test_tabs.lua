@@ -10,13 +10,15 @@ local T = MiniTest.new_set({
 	},
 })
 
-T["open zen side buffers on startup"] = function()
+T["open zen buffers on a new tab"] = function()
+	child.cmd("tabnew")
+
 	Helpers.expect.layout(child, {
 		type = "row",
 		children = {
-			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
-			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
-			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 49 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 49 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 49 },
 		},
 	})
 end
