@@ -10,7 +10,7 @@ local T = MiniTest.new_set({
 	},
 })
 
-T["open zen buffers on a new tab"] = function()
+T["open zen side buffers on a new tab"] = function()
 	child.cmd("tabnew")
 
 	Helpers.expect.layout(child, {
