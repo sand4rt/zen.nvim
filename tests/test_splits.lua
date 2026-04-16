@@ -12,7 +12,7 @@ local T = MiniTest.new_set({
 
 T["vsplit"] = MiniTest.new_set({})
 
-T["vsplit"]["opening closes zen buffers"] = function()
+T["vsplit"]["opening closes zen side buffers"] = function()
 	child.cmd("edit test.lua")
 	child.cmd("vsplit test2.lua")
 
