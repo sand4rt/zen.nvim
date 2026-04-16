@@ -1,8 +1,24 @@
 vim.cmd([[let &rtp.=','.getcwd()]])
-vim.cmd("set rtp+=deps/mini.nvim")
+vim.opt.packpath:prepend("deps")
 
 vim.o.columns = 240
 vim.o.lines = 52
 
 require("mini.test").setup()
-require("zen").setup()
+require("trouble").setup({ open_no_results = true })
+require("zen").setup({
+	top = {
+		{ filetype = "fugitive" },
+	},
+	bottom = {
+		{ filetype = "trouble" },
+	},
+	left = {
+		min_width = 46,
+		{ filetype = "fyler" },
+	},
+	right = {
+		min_width = 46,
+		{ filetype = "neotest-summary" },
+	},
+})

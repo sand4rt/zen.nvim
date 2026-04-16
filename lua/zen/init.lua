@@ -129,7 +129,7 @@ local function is_buff_integration(buf)
 	if filetype == "zen-left" or filetype == "zen-right" then
 		return true
 	end
-	for _, position in ipairs({ "left", "right" }) do
+	for _, position in ipairs({ "left", "right", "top", "bottom" }) do
 		for _, integration in ipairs(opts[position] or {}) do
 			---@diagnostic disable-next-line: undefined-field
 			if type(integration) == "table" and is_filetype(filetype, integration.filetype) then

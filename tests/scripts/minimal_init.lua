@@ -1,4 +1,4 @@
 vim.cmd([[let &rtp.=','.getcwd()]])
-vim.cmd("set rtp+=deps/mini.nvim")
+vim.opt.packpath:prepend("deps")
 
 require("mini.test").setup()
