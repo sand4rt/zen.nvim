@@ -1,12 +1,22 @@
 local Helpers = dofile("tests/scripts/helpers.lua")
 local child = MiniTest.new_child_neovim()
 
+-- Create a temporary git repo so fugitive commands work in CI
+local git_dir = vim.fn.tempname()
+vim.fn.mkdir(git_dir, "p")
+vim.fn.system({ "git", "init", git_dir })
+vim.fn.system({ "git", "-C", git_dir, "commit", "--allow-empty", "-m", "init" })
+
 local T = MiniTest.new_set({
 	hooks = {
 		pre_case = function()
 			child.restart({ "-u", "tests/scripts/init_with_zen.lua" })
+			child.lua("vim.env.GIT_DIR = '" .. git_dir .. "/.git'")
 		end,
-		post_once = child.stop,
+		post_once = function()
+			child.stop()
+			vim.fn.delete(git_dir, "rf")
+		end,
 	},
 })
 
@@ -196,13 +206,59 @@ T["top integration"]["opening an integration should close the existing integrati
 	})
 end
 
--- T["top integration"]["closing a stacked top split returns cursor to the integration below it"] = function ()
--- 	child.cmd("Git")
---
--- 	-- create a commit with cc
--- 	-- close the cc buffer
--- 	-- fugitive buffer should be focussed
--- end
+T["top integration"]["closing a stacked top split returns cursor to the integration below it"] = function()
+	child.cmd("Git")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	-- move cursor to fugitive window and start a commit
+	child.lua([[
+		for _, win in ipairs(vim.api.nvim_list_wins()) do
+			local buf = vim.api.nvim_win_get_buf(win)
+			if vim.bo[buf].filetype == "fugitive" then
+				vim.api.nvim_set_current_win(win)
+				break
+			end
+		end
+	]])
+	child.cmd("Git commit --allow-empty")
+
+	-- close the commit editor (abort the commit)
+	child.cmd("bdelete!")
+
+	-- layout should be unchanged
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	-- cursor should be in the fugitive window
+	local ft = child.lua_get("vim.bo.filetype")
+	MiniTest.expect.equality(ft, "fugitive")
+end
 
 T["bottom integration"] = MiniTest.new_set({})
 

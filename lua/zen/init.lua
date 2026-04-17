@@ -27,8 +27,9 @@ local opts = {
 	bottom = {},
 	left = { { filetype = "*", min_width = 46 } },
 }
+--- @type table<number, { left: number, right: number }>
 local state = {
-	[vim.api.nvim_get_current_tabpage()] = { left = nil, right = nil },
+	[vim.api.nvim_get_current_tabpage()] = { left = -1, right = -1 },
 }
 
 local function get_main_width()
@@ -77,18 +78,19 @@ local function is_filetype(target, filetype)
 	return false
 end
 
----@param position "left" | "right"
+---@param position string
 ---@param filetype string
 ---@return number
 local function get_min_width(position, filetype)
 	local wildcard_width = 0
 	for _, integration in ipairs(opts[position]) do
 		if type(integration) == "table" then
-			if integration.min_width and integration.filetype ~= "*" and is_filetype(filetype, integration.filetype) then
-				return integration.min_width
+			local min_w = integration.min_width or 0
+			if min_w > 0 and integration.filetype ~= "*" and is_filetype(filetype, integration.filetype) then
+				return min_w
 			end
-			if integration.filetype == "*" and integration.min_width then
-				wildcard_width = integration.min_width
+			if integration.filetype == "*" and min_w > 0 then
+				wildcard_width = min_w
 			end
 		end
 	end
@@ -130,6 +132,18 @@ local function filetypes_visible(filetypes)
 	return false
 end
 
+---@param list string[]
+---@param filetype Filetype
+local function append_filetype(list, filetype)
+	if type(filetype) == "table" then
+		for _, ft in ipairs(filetype) do
+			table.insert(list, ft)
+		end
+	else
+		table.insert(list, filetype)
+	end
+end
+
 ---@param filetypes string[]
 ---@param type_to_remove string
 local function remove_file_type(filetypes, type_to_remove)
@@ -150,7 +164,6 @@ local function is_buff_integration(buf)
 	end
 	for _, position in ipairs({ "left", "right", "top", "bottom" }) do
 		for _, integration in ipairs(opts[position] or {}) do
-			---@diagnostic disable-next-line: undefined-field
 			if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
 				return true
 			end
@@ -442,11 +455,7 @@ local function setup(options)
 			local left_file_types = { "zen-left" }
 			for _, integration in ipairs(opts.left) do
 				if type(integration) == "table" and integration.filetype ~= "*" then
-					if type(integration.filetype) == "table" then
-						vim.list_extend(left_file_types, integration.filetype)
-					else
-						table.insert(left_file_types, integration.filetype)
-					end
+					append_filetype(left_file_types, integration.filetype)
 				end
 			end
 			remove_file_type(left_file_types, file_type)
@@ -458,11 +467,7 @@ local function setup(options)
 			local right_file_types = { "zen-right" }
 			for _, integration in ipairs(opts.right) do
 				if type(integration) == "table" and integration.filetype ~= "*" then
-					if type(integration.filetype) == "table" then
-						vim.list_extend(right_file_types, integration.filetype)
-					else
-						table.insert(right_file_types, integration.filetype)
-					end
+					append_filetype(right_file_types, integration.filetype)
 				end
 			end
 			remove_file_type(right_file_types, file_type)
