@@ -2,29 +2,30 @@
 
 --- @class Integration
 --- @field filetype Filetype
+--- @field min_width? number
 
 --- @class Config
 --- @field main? { width: number | fun(): number; }
 --- @field top? Integration[]
---- @field right? { min_width?: number; [number]: Integration[]}
+--- @field right? Integration[]
 --- @field bottom? Integration[]
---- @field left? { min_width?: number; [number]: Integration[]}
+--- @field left? Integration[]
 
 --- @class ConfigOptions
 --- @field main { width: number | fun(): number; }
 --- @field top Integration[]
---- @field right { min_width: number; [number]: Integration[]}
+--- @field right Integration[]
 --- @field bottom Integration[]
---- @field left { min_width: number; [number]: Integration[]}
+--- @field left Integration[]
 
 local default_width = 148
 --- @type ConfigOptions
 local opts = {
 	main = { width = default_width },
 	top = {},
-	right = { min_width = 46 },
+	right = { { filetype = "*", min_width = 46 } },
 	bottom = {},
-	left = { min_width = 46 },
+	left = { { filetype = "*", min_width = 46 } },
 }
 local state = {
 	[vim.api.nvim_get_current_tabpage()] = { left = nil, right = nil },
@@ -69,11 +70,29 @@ end
 ---@return boolean
 local function is_filetype(target, filetype)
 	if type(filetype) == "string" then
-		return filetype == target
+		return filetype ~= "*" and filetype == target
 	elseif type(filetype) == "table" then
 		return vim.tbl_contains(filetype, target)
 	end
 	return false
+end
+
+---@param position "left" | "right"
+---@param filetype string
+---@return number
+local function get_min_width(position, filetype)
+	local wildcard_width = 0
+	for _, integration in ipairs(opts[position]) do
+		if type(integration) == "table" then
+			if integration.min_width and integration.filetype ~= "*" and is_filetype(filetype, integration.filetype) then
+				return integration.min_width
+			end
+			if integration.filetype == "*" and integration.min_width then
+				wildcard_width = integration.min_width
+			end
+		end
+	end
+	return wildcard_width
 end
 
 ---@return number
@@ -262,8 +281,8 @@ local function setup(options)
 				for _, position in ipairs({ "right", "left" }) do
 					for _, integration in pairs(opts[position]) do
 						---@diagnostic disable-next-line: undefined-field
-						if type(integration) == "table" and integration.filetype == filetype then
-							local new_width = math.max(opts[position].min_width, math.floor((vim.o.columns - get_main_width()) / 2))
+						if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
+							local new_width = math.max(get_min_width(position, filetype), math.floor((vim.o.columns - get_main_width()) / 2))
 							vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
 							return
 						end
@@ -457,6 +476,19 @@ local function setup(options)
 									and not is_filetype(filetype, integration_inner.filetype)
 								then
 									close(integration_inner.filetype)
+								end
+							end
+						end
+
+						if position == "left" or position == "right" then
+							local min_width = get_min_width(position, filetype)
+							if min_width > 0 then
+								local win = vim.fn.bufwinid(args.buf)
+								if win ~= -1 then
+									local current_width = vim.api.nvim_win_get_width(win)
+									if current_width < min_width then
+										vim.api.nvim_win_set_width(win, min_width)
+									end
 								end
 							end
 						end
