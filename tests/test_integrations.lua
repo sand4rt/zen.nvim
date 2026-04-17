@@ -257,4 +257,28 @@ T["right integration"]["opening an integration with table filetype"] = function(
 	})
 end
 
+local min_width_child = MiniTest.new_child_neovim()
+
+T["min_width"] = MiniTest.new_set({
+	hooks = {
+		pre_case = function()
+			min_width_child.restart({ "-u", "tests/scripts/init_with_zen_min_width.lua" })
+		end,
+		post_once = min_width_child.stop,
+	},
+})
+
+T["min_width"]["integration with a larger min_width should override the wildcard default"] = function()
+	min_width_child.lua([[vim.o.splitright = true; require("CopilotChat").open()]])
+
+	Helpers.expect.layout(min_width_child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 132, height = 50 },
+			{ type = "leaf", filetype = "copilot-chat", buftype = "nofile", width = 60, height = 50 },
+		},
+	})
+end
+
 return T

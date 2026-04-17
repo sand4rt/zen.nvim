@@ -16,11 +16,11 @@ require("zen").setup({
 		{ filetype = "trouble" },
 	},
 	left = {
-		min_width = 46,
+		{ filetype = "*", min_width = 46 },
 		{ filetype = "fyler" },
 	},
 	right = {
-		min_width = 46,
+		{ filetype = "*", min_width = 46 },
 		{ filetype = "neotest-summary" },
 	},
 })
