@@ -316,7 +316,7 @@ local function setup(options)
 			end
 
 			local editable_count = 0
-			for _, win in ipairs(vim.api.nvim_list_wins()) do
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 				if not is_popup_window(win) then
 					local buf = vim.api.nvim_win_get_buf(win)
 					if not is_buff_integration(buf) then
