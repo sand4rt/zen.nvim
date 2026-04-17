@@ -8,19 +8,26 @@ require("mini.test").setup()
 require("trouble").setup({ open_no_results = true })
 require("fyler").setup({})
 require("neotest").setup({ adapters = {} })
+require("dapui").setup({})
+require("CopilotChat").setup({})
 require("zen").setup({
 	top = {
 		{ filetype = "fugitive" },
+		{ filetype = "man" },
 	},
 	bottom = {
 		{ filetype = "trouble" },
+		{ filetype = "qf" },
 	},
 	left = {
 		min_width = 46,
 		{ filetype = "fyler" },
+		{ filetype = "dbui" },
 	},
 	right = {
 		min_width = 46,
 		{ filetype = "neotest-summary" },
+		{ filetype = "copilot-chat" },
+		{ filetype = { "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" } },
 	},
 })
