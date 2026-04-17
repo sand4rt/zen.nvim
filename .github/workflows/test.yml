@@ -1,18 +1,17 @@
-name: Tests
+name: CI
 
 on:
   pull_request:
     branches: [main]
 
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: rhysd/action-setup-vim@v1
-        with:
-          neovim: true
-          version: stable
+      - uses: cachix/install-nix-action@v30
 
-      - run: make test
+      - run: nix develop .#ci --command make test
+
+      - run: nix develop .#ci --command make typecheck
