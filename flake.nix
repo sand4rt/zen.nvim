@@ -9,15 +9,18 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        basePackages = with pkgs; [
+          lua-language-server
+          gnumake
+          git
+        ];
       in
       {
         devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            neovim
-            lua-language-server
-            gnumake
-            git
-          ];
+          packages = basePackages;
+        };
+        devShells.ci = pkgs.mkShell {
+          packages = basePackages ++ [ pkgs.neovim ];
         };
       }
     );
