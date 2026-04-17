@@ -15,6 +15,8 @@
           packages = with pkgs; [
             neovim
             lua-language-server
+            gnumake
+            git
           ];
         };
       }
