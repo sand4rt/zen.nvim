@@ -1,9 +1,5 @@
 # 🧘🏼‍♂️ zen.nvim
 
-> **Note** While the plugin generally works, the code is still a work in
-> progress, somewhat rough and may contain bugs. It will take time to fully iron
-> out all edge cases.
-
 ![zen mode by https://github.com/alex35mil/dotfiles](https://user-images.githubusercontent.com/4244251/266051812-5adc68e7-e2ac-4f1e-9093-f995cbd0f561.png "Zen mode by https://github.com/alex35mil/dotfiles")
 
 ## Capabilities
