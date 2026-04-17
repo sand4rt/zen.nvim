@@ -486,13 +486,13 @@ T["combined"]["opening a side integration preserves existing top and bottom inte
 	Helpers.expect.layout(child, {
 		type = "col",
 		children = {
-			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 18 },
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
 			{
 				type = "row",
 				children = {
-					{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 20 },
-					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 20 },
-					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 20 },
+					{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 13 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 13 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 13 },
 				},
 			},
 			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
@@ -506,21 +506,36 @@ T["combined"]["opening a side integration preserves existing top and bottom inte
 	Helpers.expect.layout(child, {
 		type = "col",
 		children = {
-			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 18 },
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
 			{
 				type = "row",
 				children = {
-					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 20 },
-					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 20 },
-					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 20 },
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 13 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 13 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 13 },
 				},
 			},
 			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
 		},
 	})
+
+	child.cmd("Trouble close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
 end
-
-
 
 local min_width_child = MiniTest.new_child_neovim()
 

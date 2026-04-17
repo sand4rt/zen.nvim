@@ -1,9 +1,7 @@
 --- @alias Filetype string|string[]
-
 --- @class Integration
 --- @field filetype Filetype
 --- @field min_width? number
-
 --- @class Config
 --- @field main? { width: number | fun(): number; }
 --- @field top? Integration[]
@@ -11,333 +9,196 @@
 --- @field bottom? Integration[]
 --- @field left? Integration[]
 
---- @class ConfigOptions
---- @field main { width: number | fun(): number; }
---- @field top Integration[]
---- @field right Integration[]
---- @field bottom Integration[]
---- @field left Integration[]
-
-local default_width = 148
---- @type ConfigOptions
-local opts = {
-	main = { width = default_width },
+local options = {
+	main = { width = 148 },
 	top = {},
 	right = { { filetype = "*", min_width = 46 } },
 	bottom = {},
 	left = { { filetype = "*", min_width = 46 } },
 }
---- @type table<number, { left: number, right: number }>
-local state = {
-	[vim.api.nvim_get_current_tabpage()] = { left = -1, right = -1 },
-}
+local state = { [vim.api.nvim_get_current_tabpage()] = { left = -1, right = -1 } }
+local filetype_positions = {}
+local min_widths = {}
+local wildcard_min_widths = {}
+local sibling_filetypes = {}
+local in_handler = false
 
 local function get_main_width()
-	local width = opts.main and opts.main.width
-	if type(width) == "function" then
-		width = width()
-	end
-	if type(width) ~= "number" then
-		return default_width
-	end
-	return width
+	local width = options.main and options.main.width
+	if type(width) == "function" then width = width() end
+	return type(width) == "number" and width or options.main.width
 end
 
-local function create_window(position)
-	if position == "left" then
-		vim.cmd("topleft vnew")
-	elseif position == "right" then
-		vim.cmd("botright vnew")
-	end
-
-	local win_id = vim.api.nvim_get_current_win()
-	vim.api.nvim_win_set_width(win_id, math.floor((vim.o.columns - get_main_width()) / 2))
-	vim.api.nvim_set_option_value("winfixwidth", true, { scope = "local", win = win_id })
-	vim.api.nvim_set_option_value("winfixbuf", true, { scope = "local", win = win_id })
-	vim.api.nvim_set_option_value("cursorline", false, { scope = "local", win = win_id })
-	vim.api.nvim_set_option_value("number", false, { scope = "local", win = win_id })
-	vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = win_id })
-
-	local buf_id = vim.api.nvim_get_current_buf()
-	vim.api.nvim_set_option_value("filetype", "zen-" .. position, { buf = buf_id })
-	vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf_id })
-	vim.api.nvim_set_option_value("buflisted", false, { buf = buf_id })
-
-	return vim.api.nvim_get_current_win()
+local function get_padding_width()
+	return math.floor((vim.o.columns - get_main_width()) / 2)
 end
 
----@param target string
----@param filetype Filetype
----@return boolean
-local function is_filetype(target, filetype)
-	if type(filetype) == "string" then
-		return filetype ~= "*" and filetype == target
-	elseif type(filetype) == "table" then
-		return vim.tbl_contains(filetype, target)
-	end
-	return false
+local function create_side_window(position)
+	vim.cmd(position == "left" and "topleft vnew" or "botright vnew")
+	local window = vim.api.nvim_get_current_win()
+	vim.api.nvim_win_set_width(window, get_padding_width())
+	vim.wo[window].winfixwidth = true
+	vim.wo[window].winfixbuf = true
+	vim.wo[window].cursorline = false
+	vim.wo[window].number = false
+	vim.wo[window].relativenumber = false
+	local buffer = vim.api.nvim_get_current_buf()
+	vim.bo[buffer].filetype = "zen-" .. position
+	vim.bo[buffer].buftype = "nofile"
+	vim.bo[buffer].buflisted = false
+	return window
 end
 
----@param position "top" | "right" | "bottom" | "left"
----@param filetype string
----@return number
-local function get_min_width(position, filetype)
-	local wildcard_width = 0
-	for _, integration in ipairs(opts[position]) do
-		if type(integration) == "table" then
-			local min_w = integration.min_width or 0
-			if min_w > 0 and integration.filetype ~= "*" and is_filetype(filetype, integration.filetype) then
-				return min_w
-			end
-			if integration.filetype == "*" and min_w > 0 then
-				wildcard_width = min_w
+local function scan_windows()
+	local filetype_windows = {}
+	local editable_cols = {}
+	local editable_count = 0
+	for _, window in ipairs(vim.api.nvim_list_wins()) do
+		if vim.api.nvim_win_get_config(window).relative ~= "" then
+			goto continue
+		end
+		local filetype = vim.bo[vim.api.nvim_win_get_buf(window)].filetype
+		filetype_windows[filetype] = window
+		if not filetype_positions[filetype] then
+			editable_count = editable_count + 1
+			if vim.api.nvim_win_get_width(window) < vim.o.columns then
+				editable_cols[vim.api.nvim_win_get_position(window)[2]] = true
 			end
 		end
+		::continue::
 	end
-	return wildcard_width
+	return filetype_windows, vim.tbl_count(editable_cols), editable_count
 end
 
----@return number
-local function get_side_buffer(position)
-	local current_tabpage = vim.api.nvim_get_current_tabpage()
-	if state[current_tabpage] and state[current_tabpage][position] then
-		return state[current_tabpage][position]
+local function close_side_window(position)
+	local tab = state[vim.api.nvim_get_current_tabpage()]
+	local window = tab and tab[position]
+	if not window or not vim.api.nvim_win_is_valid(window) then
+		return
 	end
-	return -1
-end
-
-local function close_side_buffer(position)
-	local window = get_side_buffer(position)
-	if window and vim.api.nvim_win_is_valid(window) then
-		local buffer = vim.api.nvim_win_get_buf(window)
-		vim.api.nvim_win_close(window, true)
-
-		if vim.api.nvim_buf_is_valid(buffer) then
-			vim.api.nvim_buf_delete(buffer, { force = true })
-		end
+	local buffer = vim.api.nvim_win_get_buf(window)
+	vim.api.nvim_win_close(window, true)
+	if vim.api.nvim_buf_is_valid(buffer) then
+		vim.api.nvim_buf_delete(buffer, { force = true })
 	end
 end
 
----@param filetypes string[]
----@return boolean
-local function filetypes_visible(filetypes)
-	for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-		local buf_id = vim.api.nvim_win_get_buf(win_id)
-		if vim.api.nvim_buf_is_valid(buf_id) and vim.api.nvim_buf_is_loaded(buf_id) then
-			if vim.tbl_contains(filetypes, vim.api.nvim_get_option_value("filetype", { buf = buf_id })) then
-				return true
+local function resize_side_windows()
+	local width = get_padding_width()
+	local tab = state[vim.api.nvim_get_current_tabpage()]
+	if not tab then
+		return
+	end
+	for _, position in ipairs({ "left", "right" }) do
+		if vim.api.nvim_win_is_valid(tab[position] or -1) then vim.api.nvim_win_set_width(tab[position], width) end
+	end
+end
+
+-- Critical: set_config and set_height must be in separate passes;
+-- interleaving them causes Neovim to redistribute heights between calls.
+local function reposition_top_bottom(filetype_windows)
+	local heights, configs = {}, {}
+	for filetype, window in pairs(filetype_windows) do
+		local position = filetype_positions[filetype]
+		if (position == "top" or position == "bottom") and vim.api.nvim_win_is_valid(window) then
+			heights[window] = vim.api.nvim_win_get_height(window)
+			if vim.api.nvim_win_get_width(window) ~= vim.o.columns then
+				configs[window] = position
 			end
 		end
 	end
-	return false
-end
-
----@param list string[]
----@param filetype Filetype
-local function append_filetype(list, filetype)
-	if type(filetype) == "table" then
-		for _, ft in ipairs(filetype) do
-			table.insert(list, ft)
-		end
-	else
-		table.insert(list, filetype)
+	for window, position in pairs(configs) do
+		vim.api.nvim_win_set_config(window, { split = position == "top" and "above" or "below", win = -1 })
+	end
+	for window, height in pairs(heights) do
+		if vim.api.nvim_win_is_valid(window) then vim.api.nvim_win_set_height(window, height) end
 	end
 end
 
----@param filetypes string[]
----@param type_to_remove string
-local function remove_file_type(filetypes, type_to_remove)
-	for i, filetype in ipairs(filetypes) do
-		if filetype == type_to_remove then
-			table.remove(filetypes, i)
-			break
+local function protect_top_bottom(filetype_windows)
+	local protected = {}
+	for filetype, window in pairs(filetype_windows) do
+		local position = filetype_positions[filetype]
+		if (position == "top" or position == "bottom") and vim.api.nvim_win_is_valid(window) then
+			vim.wo[window].winfixheight = true
+			table.insert(protected, window)
 		end
 	end
-end
-
----@param buf number
----@return boolean
-local function is_buff_integration(buf)
-	local filetype = vim.api.nvim_get_option_value("filetype", { buf = buf })
-	if filetype == "zen-left" or filetype == "zen-right" then
-		return true
-	end
-	for _, position in ipairs({ "left", "right", "top", "bottom" }) do
-		for _, integration in ipairs(opts[position] or {}) do
-				if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
-				return true
-			end
-		end
-	end
-	return false
-end
-
----@return table
-local function get_editable_files()
-	local editable_files = {}
-	local windows = vim.api.nvim_list_wins()
-	for _, win in ipairs(windows) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		if not is_buff_integration(buf) then -- is an actual file
-			editable_files[buf] = buf
-		end
-	end
-	return editable_files
-end
-
----@param win_id number
----@return boolean
-local function is_popup_window(win_id)
-	return vim.api.nvim_win_get_config(win_id).relative ~= ""
-end
-
----@return table
-local function get_vsplits()
-	local vsplits = {}
-	local windows = vim.api.nvim_list_wins()
-	for _, win in ipairs(windows) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		local total_width = vim.o.columns
-		local window_width = vim.api.nvim_win_get_width(win)
-		local is_popup = is_popup_window(win)
-		local is_integration = is_buff_integration(buf)
-		if not is_popup and not is_integration and window_width < total_width then
-			vsplits[win] = buf
-		end
-	end
-	return vsplits
-end
-
----@param position "top" | "right" | "bottom" | "left"
----@return boolean
-local function is_integration_open(position)
-	for _, integration in pairs(opts[position]) do
-		for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-			if
-				type(integration) == "table"
-				and vim.api.nvim_buf_is_loaded(buf)
-				and is_filetype(vim.api.nvim_get_option_value("filetype", { buf = buf }), integration.filetype)
-			then
-				return true
-			end
-		end
-	end
-	return false
-end
-
----@param filetype string|string[]
-local function get_window_by_filetype(filetype)
-	for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-		local buf_id = vim.api.nvim_win_get_buf(win_id)
-		local buf_filetype = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
-		if is_filetype(buf_filetype, filetype) then
-			return win_id
-		end
-	end
-	return nil
-end
-
-local _saved_position_heights = {}
-local _in_handler = false
-
-local function save_top_bottom_heights()
-	for _, position in ipairs({ "top", "bottom" }) do
-		for _, integration in pairs(opts[position]) do
-			if type(integration) == "table" then
-				local win = get_window_by_filetype(integration.filetype)
-				if win then
-					local w = vim.api.nvim_win_get_width(win)
-					-- only save when integration spans full width (properly positioned)
-					if w == vim.o.columns then
-						_saved_position_heights[position] = vim.api.nvim_win_get_height(win)
-					end
-					break
+	if #protected == 0 then return end
+	vim.api.nvim_create_autocmd("WinResized", {
+		once = true,
+		callback = function()
+			for _, window in ipairs(protected) do
+				if vim.api.nvim_win_is_valid(window) then
+					vim.wo[window].winfixheight = false
 				end
 			end
+		end,
+	})
+end
+
+local function has_side_window(filetype_windows, position, exclude)
+	for filetype in pairs(filetype_windows) do
+		if filetype ~= exclude and filetype_positions[filetype] == position then
+			return true
+		end
+	end
+	return false
+end
+
+local function ensure_padding(filetype_windows, exclude)
+	local tabpage = vim.api.nvim_get_current_tabpage()
+	state[tabpage] = state[tabpage] or { left = -1, right = -1 }
+	for _, position in ipairs({ "left", "right" }) do
+		if not has_side_window(filetype_windows, position, exclude) then
+			state[tabpage][position] = create_side_window(position)
+			vim.cmd(position == "left" and "wincmd l" or "wincmd h")
 		end
 	end
 end
 
-local function reposition_top_bottom_integrations()
-	for _, integration in pairs(opts.top) do
-		local win = get_window_by_filetype(integration.filetype)
-		if win then
-			local needs_reposition = vim.api.nvim_win_get_width(win) ~= vim.o.columns
-			if needs_reposition then
-				local height_before = vim.api.nvim_win_get_height(win)
-				vim.api.nvim_win_set_config(win, { split = "above", win = -1 })
-				vim.api.nvim_win_set_height(win, _saved_position_heights.top or height_before)
-			elseif _saved_position_heights.top then
-				vim.api.nvim_win_set_height(win, _saved_position_heights.top)
-			end
-			_saved_position_heights.top = vim.api.nvim_win_get_height(win)
-		end
-	end
-	for _, integration in pairs(opts.bottom) do
-		local win = get_window_by_filetype(integration.filetype)
-		if win then
-			local needs_reposition = vim.api.nvim_win_get_width(win) ~= vim.o.columns
-			if needs_reposition then
-				local height_before = vim.api.nvim_win_get_height(win)
-				vim.api.nvim_win_set_config(win, { split = "below", win = -1 })
-				vim.api.nvim_win_set_height(win, _saved_position_heights.bottom or height_before)
-			elseif _saved_position_heights.bottom then
-				vim.api.nvim_win_set_height(win, _saved_position_heights.bottom)
-			end
-			_saved_position_heights.bottom = vim.api.nvim_win_get_height(win)
-		end
-	end
-end
-
-local function resize_side_buffers()
-	local new_width = math.floor((vim.o.columns - get_main_width()) / 2)
-	local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
-	if left then
-		vim.api.nvim_win_set_width(get_side_buffer("left"), new_width)
-	end
-	local right = vim.api.nvim_win_is_valid(get_side_buffer("right"))
-	if right then
-		vim.api.nvim_win_set_width(get_side_buffer("right"), new_width)
-	end
-end
-
----@param filetype string|string[]
-local function close(filetype)
-	for _, win in ipairs(vim.api.nvim_list_wins()) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		if is_filetype(vim.bo[buf].filetype, filetype) then
-			vim.api.nvim_win_close(win, false)
-		end
-	end
-end
-
----@param options? Config
-local function setup(options)
-	-- Default splitting will cause your main splits to jump when opening an integration.
-	-- To prevent this, set `splitkeep` to either `screen` or `topline`.
+--- @param config? Config
+local function setup(config)
 	vim.opt.splitkeep = "screen"
-
-	---@type ConfigOptions
-	opts = vim.tbl_extend("force", opts, options or {})
+	options = vim.tbl_extend("force", options, config or {})
+	filetype_positions = { ["zen-left"] = "left", ["zen-right"] = "right" }
+	min_widths, wildcard_min_widths, sibling_filetypes = {}, {}, {}
+	for _, position in ipairs({ "top", "right", "bottom", "left" }) do
+		for _, integration in ipairs(options[position]) do
+			if type(integration) ~= "table" then
+				goto continue
+			end
+			if integration.filetype == "*" then
+				if (integration.min_width or 0) > 0 then
+					wildcard_min_widths[position] = integration.min_width
+				end
+				goto continue
+			end
+			local filetypes = type(integration.filetype) == "table" and integration.filetype or { integration.filetype }
+			for _, ft in ipairs(filetypes) do
+				filetype_positions[ft] = position
+				sibling_filetypes[ft] = filetypes
+				if (integration.min_width or 0) > 0 then
+					min_widths[position] = min_widths[position] or {}
+					min_widths[position][ft] = integration.min_width
+				end
+			end
+			::continue::
+		end
+	end
 
 	vim.api.nvim_create_autocmd({ "VimEnter", "TabNew" }, {
 		callback = function()
-			-- disable when window is too small
-			if vim.o.columns <= get_main_width() then
+			local _, vsplit_count = scan_windows()
+			if vim.o.columns <= get_main_width() or vsplit_count >= 2 then
 				return
 			end
-
-			if vim.tbl_count(get_vsplits()) >= 2 then
-				return
-			end
-
 			state[vim.api.nvim_get_current_tabpage()] = {
-				left = create_window("left"),
-				right = create_window("right"),
+				left = create_side_window("left"),
+				right = create_side_window("right"),
 			}
 			vim.cmd("wincmd h")
 		end,
-		desc = "Restore the last buffer when opening Neovim",
 	})
 
 	vim.api.nvim_create_autocmd("BufEnter", {
@@ -346,200 +207,132 @@ local function setup(options)
 				vim.cmd("wincmd l")
 			elseif vim.bo.filetype == "zen-right" then
 				vim.cmd("wincmd h")
-			else
-				save_top_bottom_heights()
 			end
 		end,
-		desc = "Prevent the cursor from moving to the side buffers.",
 	})
 
 	vim.api.nvim_create_autocmd("QuitPre", {
 		callback = function(args)
-			if is_popup_window(vim.api.nvim_get_current_win()) then
+			if vim.api.nvim_win_get_config(vim.api.nvim_get_current_win()).relative ~= "" then
 				return
 			end
-			if is_buff_integration(args.buf) then
+			if filetype_positions[vim.bo[args.buf].filetype] then
 				return
 			end
-
-			local editable_count = 0
-			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-				if not is_popup_window(win) then
-					local buf = vim.api.nvim_win_get_buf(win)
-					if not is_buff_integration(buf) then
-						editable_count = editable_count + 1
-					end
+			local editable = 0
+			for _, window in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if vim.api.nvim_win_get_config(window).relative == "" and not filetype_positions[vim.bo[vim.api.nvim_win_get_buf(window)].filetype] then
+					editable = editable + 1
 				end
 			end
-			if editable_count ~= 1 then
-				return
-			end
-
-			close_side_buffer("left")
-			close_side_buffer("right")
-
-			for _, position in ipairs({ "top", "right", "bottom", "left" }) do
-				for _, integration in pairs(opts[position]) do
-					if type(integration) == "table" then
-						close(integration.filetype)
-					end
+			if editable ~= 1 then return end
+			close_side_window("left")
+			close_side_window("right")
+			for _, window in ipairs(vim.api.nvim_list_wins()) do
+				if filetype_positions[vim.bo[vim.api.nvim_win_get_buf(window)].filetype] then
+					vim.api.nvim_win_close(window, false)
 				end
 			end
 		end,
-		desc = "Close left and right buffers on quit",
+	})
+
+	vim.api.nvim_create_autocmd("WinResized", {
+		callback = function()
+			local _, vsplit_count = scan_windows()
+			if vsplit_count >= 2 then
+				close_side_window("left")
+				close_side_window("right")
+			end
+		end,
 	})
 
 	vim.api.nvim_create_autocmd("VimResized", {
 		callback = function()
-			if vim.tbl_count(get_editable_files()) ~= 1 then
-				return
-			end
-
-			-- close when window is too small
+			local filetype_windows, vsplit_count = scan_windows()
 			if vim.o.columns <= get_main_width() then
-				close_side_buffer("left")
-				close_side_buffer("right")
+				close_side_window("left")
+				close_side_window("right")
 				return
 			end
-
-			-- enable when side buffers is big enough
-			local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
-			if not left and not is_integration_open("left") then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
-				vim.cmd("wincmd l")
+			if vsplit_count > 1 then
+				return
 			end
-
-			local right = vim.api.nvim_win_is_valid(get_side_buffer("right"))
-			if not right and not is_integration_open("right") then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
-				vim.cmd("wincmd h")
-			end
-			resize_side_buffers()
+			ensure_padding(filetype_windows, nil)
+			reposition_top_bottom(scan_windows())
+			resize_side_windows()
 		end,
-		desc = "Resizes side windows after terminal has been resized, closes them if not enough space left.",
 	})
 
 	vim.api.nvim_create_autocmd("WinClosed", {
-		pattern = "*",
 		callback = function(args)
-			-- do not recreate when window is too small
 			if vim.o.columns <= get_main_width() then
 				return
 			end
-			local win_id = tonumber(args.match)
-			if win_id == nil then
+			local window_id = tonumber(args.match)
+			if not window_id or not vim.api.nvim_win_is_valid(window_id) then
 				return
 			end
-
-			if is_popup_window(win_id) then
+			if vim.api.nvim_win_get_config(window_id).relative ~= "" then
 				return
 			end
-
-			local buf_id = vim.fn.winbufnr(win_id)
-			local file_type = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
-			local buf_type = vim.api.nvim_get_option_value("buftype", { buf = buf_id })
-			-- do not recreate when multiple vsplits are active
-			local count = vim.tbl_count(get_vsplits())
-			if buf_type == "" then
-				count = count - 1
-			end
-			if count >= 2 then
+			local closing_buffer = vim.fn.winbufnr(window_id)
+			local closing_filetype = closing_buffer ~= -1 and vim.bo[closing_buffer].filetype or ""
+			local closing_position = filetype_positions[closing_filetype]
+			if closing_position == "top" or closing_position == "bottom" then
+				protect_top_bottom(scan_windows())
 				return
 			end
-
-			-- save top/bottom integration heights before recreating zen buffers
-			if not _in_handler then
-				save_top_bottom_heights()
+			local filetype_windows, vsplit_count = scan_windows()
+			if closing_buffer ~= -1 and vim.bo[closing_buffer].buftype == "" then
+				vsplit_count = vsplit_count - 1
 			end
-
-			local left_file_types = { "zen-left" }
-			for _, integration in ipairs(opts.left) do
-				if type(integration) == "table" and integration.filetype ~= "*" then
-					append_filetype(left_file_types, integration.filetype)
-				end
+			if vsplit_count >= 2 then
+				return
 			end
-			remove_file_type(left_file_types, file_type)
-			if not filetypes_visible(left_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
-				vim.cmd("wincmd l")
+			ensure_padding(filetype_windows, closing_filetype)
+			if not in_handler then
+				reposition_top_bottom(scan_windows())
 			end
-
-			local right_file_types = { "zen-right" }
-			for _, integration in ipairs(opts.right) do
-				if type(integration) == "table" and integration.filetype ~= "*" then
-					append_filetype(right_file_types, integration.filetype)
-				end
-			end
-			remove_file_type(right_file_types, file_type)
-			if not filetypes_visible(right_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
-				vim.cmd("wincmd h")
-			end
-
-			if not _in_handler then
-				reposition_top_bottom_integrations()
-			end
-			resize_side_buffers()
+			resize_side_windows()
 		end,
-		desc = "Recreate the side buffers if they are closed.",
 	})
 
 	vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType" }, {
-		pattern = "*",
 		callback = function(args)
-			if is_popup_window(vim.api.nvim_get_current_win()) then
+			if vim.api.nvim_win_get_config(vim.api.nvim_get_current_win()).relative ~= "" then
 				return
 			end
 			local filetype = vim.bo[args.buf].filetype
-			local is_integration = is_buff_integration(args.buf)
-			if args.event == "BufWinEnter" then
-				if filetype ~= "" and not is_integration and vim.tbl_count(get_vsplits()) >= 2 then
-					close_side_buffer("left")
-					close_side_buffer("right")
-					return
-				end
-			end
-
-			if not is_integration then
+			local filetype_windows = scan_windows()
+			if not filetype_positions[filetype] then
 				return
 			end
-
-			_in_handler = true
-
-			---@type ("top"|"right"|"bottom"|"left")[]
-			local positions = { "top", "right", "bottom", "left" }
-			for _, position in ipairs(positions) do
-				for _, integration in pairs(opts[position]) do
-					if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
-						close_side_buffer(position)
-						for _, position_inner in ipairs(positions) do
-							for _, integration_inner in pairs(opts[position_inner]) do
-								if
-									position_inner == position
-									and type(integration_inner) == "table"
-									and not is_filetype(filetype, integration_inner.filetype)
-								then
-									close(integration_inner.filetype)
-								end
-							end
-						end
-
-						if position == "left" or position == "right" then
-							local new_width = math.max(get_min_width(position, filetype), math.floor((vim.o.columns - get_main_width()) / 2))
-							local win = vim.fn.bufwinid(args.buf)
-							if win ~= -1 then
-								vim.api.nvim_win_set_width(win, new_width)
-							end
-						end
-					end
+			local position = filetype_positions[filetype]
+			if filetype == "zen-left" or filetype == "zen-right" then
+				reposition_top_bottom(filetype_windows)
+				resize_side_windows()
+				return
+			end
+			in_handler = true
+			close_side_window(position)
+			local siblings = sibling_filetypes[filetype] or { filetype }
+			for _, window in ipairs(vim.api.nvim_list_wins()) do
+				local ft = vim.bo[vim.api.nvim_win_get_buf(window)].filetype
+				if filetype_positions[ft] == position and not vim.tbl_contains(siblings, ft) then
+					vim.api.nvim_win_close(window, false)
 				end
 			end
-
-			reposition_top_bottom_integrations()
-			resize_side_buffers()
-			_in_handler = false
+			if position == "left" or position == "right" then
+				local min_width = (min_widths[position] and min_widths[position][filetype]) or wildcard_min_widths[position] or 0
+				local window = vim.fn.bufwinid(args.buf)
+				if window ~= -1 then
+					vim.api.nvim_win_set_width(window, math.max(min_width, get_padding_width()))
+				end
+			end
+			reposition_top_bottom(scan_windows())
+			resize_side_windows()
+			in_handler = false
 		end,
-		desc = "Close side buffer plugins if another plugin is already occupying that side.",
 	})
 end
 
