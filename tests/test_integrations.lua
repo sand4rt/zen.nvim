@@ -196,6 +196,16 @@ T["top integration"]["opening an integration should close the existing integrati
 end
 
 T["top integration"]["closing a stacked top split returns cursor to the integration below it"] = function()
+	-- initialize a real temporary git repo with user identity so that
+	-- "Git commit --allow-empty" works deterministically in CI
+	child.lua([[
+		local tmpdir = vim.fn.tempname()
+		vim.fn.mkdir(tmpdir, "p")
+		vim.fn.system({ "git", "init", tmpdir })
+		vim.fn.system({ "git", "-C", tmpdir, "config", "user.name", "Test" })
+		vim.fn.system({ "git", "-C", tmpdir, "config", "user.email", "test@test.com" })
+		vim.fn.chdir(tmpdir)
+	]])
 	child.cmd("Git")
 
 	Helpers.expect.layout(child, {
