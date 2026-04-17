@@ -10,6 +10,7 @@ require("fyler").setup({})
 require("neotest").setup({ adapters = {} })
 require("dapui").setup({})
 require("CopilotChat").setup({})
+
 require("zen").setup({
 	top = {
 		{ filetype = "fugitive" },
@@ -20,12 +21,12 @@ require("zen").setup({
 		{ filetype = "qf" },
 	},
 	left = {
-		min_width = 46,
+		{ filetype = "*", min_width = 46 },
 		{ filetype = "fyler" },
 		{ filetype = "dbui" },
 	},
 	right = {
-		min_width = 46,
+		{ filetype = "*", min_width = 46 },
 		{ filetype = "neotest-summary" },
 		{ filetype = "copilot-chat" },
 		{ filetype = { "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" } },

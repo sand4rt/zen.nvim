@@ -36,8 +36,8 @@ return {
       { filetype = "fugitive" },
     },
     right = {
-      min_width = 46,
-      { filetype = "copilot-chat" },
+      { filetype = "*", min_width = 46 },
+      { filetype = "copilot-chat", min_width = 60 },
       { filetype = "neotest-summary" },
       { filetype = { "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" } },
     },
@@ -48,7 +48,7 @@ return {
       { filetype = "noice" }, -- noice opens large notifications in a buffer
     },
     left = {
-      min_width = 46,
+      { filetype = "*", min_width = 46 },
       { filetype = "fugitiveblame" },
       { filetype = "fyler" },
       { filetype = "neotree" },
@@ -83,6 +83,7 @@ programs.nvf.settings.vim.lazy.plugins = {
       main = {
         width = 148;
       };
+      # TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
       top = [
         { filetype = "fugitive"; }
         { filetype = "git"; }
@@ -90,34 +91,26 @@ programs.nvf.settings.vim.lazy.plugins = {
         { filetype = "help"; }
         { filetype = "gitcommit"; }
       ];
-      right =
-        lib.generators.mkLuaInline # lua
-          ''
-            {
-              min_width = 46,
-              { filetype = "copilot-chat" },
-              { filetype = "neotest-summary" },
-              { filetype = { "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" } },
-            }
-          '';
+      right = [
+        { filetype = "*"; min_width = 46; }
+        { filetype = "copilot-chat"; min_width = 60; }
+        { filetype = "neotest-summary"; }
+        { filetype = [ "dapui_watches" "dapui_scopes" "dapui_stacks" "dapui_breakpoints" ]; }
+      ];
       bottom = [
         { filetype = "dap-repl"; }
         { filetype = "qf"; }
         { filetype = "trouble"; }
         { filetype = "noice"; } # noice opens large notifications in a buffer
       ];
-      left =
-        lib.generators.mkLuaInline # lua
-          ''
-            {
-              min_width = 46,
-              { filetype = "fugitiveblame" },
-              { filetype = "fyler" },
-              { filetype = "neotree" },
-              { filetype = "dbui" },
-              { filetype = { "undotree", "diff" } },
-            }
-          '';
+      left = [
+        { filetype = "*"; min_width = 46; }
+        { filetype = "fugitiveblame"; }
+        { filetype = "fyler"; }
+        { filetype = "neotree"; }
+        { filetype = "dbui"; }
+        { filetype = [ "undotree" "diff" ]; }
+      ];
     };
   };
 };
