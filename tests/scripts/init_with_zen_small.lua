@@ -1,7 +1,7 @@
 vim.cmd([[let &rtp.=','.getcwd()]])
 vim.opt.packpath:prepend("deps")
 
-vim.o.columns = 240
+vim.o.columns = 140
 vim.o.lines = 52
 
 require("mini.test").setup()
