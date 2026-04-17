@@ -77,7 +77,7 @@ local function is_filetype(target, filetype)
 	return false
 end
 
----@param position "left" | "right"
+---@param position "top" | "right" | "bottom" | "left"
 ---@param filetype string
 ---@return number
 local function get_min_width(position, filetype)
@@ -87,8 +87,9 @@ local function get_min_width(position, filetype)
 			if integration.min_width and integration.filetype ~= "*" and is_filetype(filetype, integration.filetype) then
 				return integration.min_width
 			end
-			if integration.filetype == "*" and integration.min_width then
-				wildcard_width = integration.min_width
+			local mw = integration.min_width
+			if integration.filetype == "*" and mw then
+				wildcard_width = mw
 			end
 		end
 	end
@@ -464,11 +465,13 @@ local function setup(options)
 				return
 			end
 
-			for _, position in ipairs({ "top", "right", "bottom", "left" }) do
+			---@type ("top"|"right"|"bottom"|"left")[]
+			local positions = { "top", "right", "bottom", "left" }
+			for _, position in ipairs(positions) do
 				for _, integration in pairs(opts[position]) do
 					if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
 						close_side_buffer(position)
-						for _, position_inner in ipairs({ "top", "right", "bottom", "left" }) do
+						for _, position_inner in ipairs(positions) do
 							for _, integration_inner in pairs(opts[position_inner]) do
 								if
 									position_inner == position

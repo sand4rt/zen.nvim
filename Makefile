@@ -1,7 +1,10 @@
 DEPS_DIR := $(CURDIR)/deps
 START_DIR := $(DEPS_DIR)/pack/testing/start
 
-.PHONY: test deps
+.PHONY: test deps typecheck
+
+typecheck:
+	lua-language-server --check lua/zen/ --checklevel=Warning --configpath=$(CURDIR)/.luarc.json
 
 test: deps
 	nvim --headless -u tests/scripts/minimal_init.lua -c "lua MiniTest.run()"
