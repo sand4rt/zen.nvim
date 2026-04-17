@@ -36,6 +36,145 @@ T["left integration"]["opening closes zen side buffer, closing reopens it"] = fu
 	})
 end
 
+
+T["left integration"]["opening an integration should close the existing integration on the same side"] = function()
+	child.cmd("Fyler kind=split_left_most")
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+
+	child.cmd("DBUI")
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "dbui", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end
+
+T["top integration"] = MiniTest.new_set({})
+
+T["top integration"]["opening"] = function()
+	child.cmd("Git")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+end
+
+T["top integration"]["opening an integration should close the existing integration on the same side"] = function()
+	child.cmd("Git")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	child.cmd("Man ls")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "man", buftype = "nofile", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+end
+
+T["bottom integration"] = MiniTest.new_set({})
+
+T["bottom integration"]["opening"] = function()
+	child.cmd("Trouble diagnostics")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+end
+
+T["bottom integration"]["opening an integration should close the existing integration on the same side"] = function()
+	child.cmd("Trouble diagnostics")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("copen")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "qf", buftype = "quickfix", width = 240, height = 10 },
+		},
+	})
+end
+
 T["right integration"] = MiniTest.new_set({})
 
 T["right integration"]["opening closes zen side buffer, closing reopens it"] = function()
@@ -58,6 +197,62 @@ T["right integration"]["opening closes zen side buffer, closing reopens it"] = f
 			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
 			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end
+
+T["right integration"]["opening an integration should close the existing integration on the same side"] = function()
+	child.cmd("Neotest summary open")
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 142, height = 50 },
+			{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 50, height = 50 },
+		},
+	})
+
+	child.lua([[vim.o.splitright = true; require("CopilotChat").open()]])
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "copilot-chat", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end
+
+T["right integration"]["opening an integration with table filetype"] = function()
+	child.lua([[require("dapui").open()]])
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{
+				type = "col",
+				children = {
+					{ type = "leaf", filetype = "dapui_watches", buftype = "prompt", width = 40, height = 12 },
+					{ type = "leaf", filetype = "dapui_stacks", buftype = "nofile", width = 40, height = 12 },
+					{ type = "leaf", filetype = "dapui_breakpoints", buftype = "nofile", width = 40, height = 12 },
+					{ type = "leaf", filetype = "dapui_scopes", buftype = "nofile", width = 40, height = 11 },
+				},
+			},
+			{
+				type = "col",
+				children = {
+					{ type = "leaf", filetype = "", buftype = "", width = 199, height = 39 },
+					{
+						type = "row",
+						children = {
+							{ type = "leaf", filetype = "dapui_console", buftype = "nofile", width = 99, height = 10 },
+							{ type = "leaf", filetype = "dap-repl", buftype = "prompt", width = 99, height = 10 },
+						},
+					},
+				},
+			},
 		},
 	})
 end
