@@ -4,15 +4,19 @@
 --- @field filetype Filetype
 --- @field min_width? number
 
+--- @class MainConfig
+--- @field width? number | fun(): number | table<string, number>
+--- @field monitor_name? fun(): string
+
 --- @class Config
---- @field main? { width: number | fun(): number; }
+--- @field main? MainConfig
 --- @field top? Integration[]
 --- @field right? Integration[]
 --- @field bottom? Integration[]
 --- @field left? Integration[]
 
 --- @class ConfigOptions
---- @field main { width: number | fun(): number; }
+--- @field main MainConfig
 --- @field top Integration[]
 --- @field right Integration[]
 --- @field bottom Integration[]
@@ -35,6 +39,15 @@ local function get_main_width()
 	local width = opts.main and opts.main.width
 	if type(width) == "function" then
 		width = width()
+	elseif type(width) == "table" then
+		local monitor_name_fn = opts.main and opts.main.monitor_name
+		local monitor_name
+		if type(monitor_name_fn) == "function" then
+			monitor_name = monitor_name_fn()
+		else
+			monitor_name = vim.env.MONITOR
+		end
+		width = (monitor_name and width[monitor_name]) or width["*"]
 	end
 	if type(width) ~= "number" then
 		return default_width
