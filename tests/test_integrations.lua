@@ -36,6 +36,44 @@ T["left integration"]["opening closes zen side buffer, closing reopens it"] = fu
 	})
 end
 
+T["left integration"]["opening a left integration preserves an existing top integration"] = function()
+	child.cmd("Git")
+	child.lua("vim.cmd('Fyler kind=split_left_most')")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	child.cmd("close")
+	child.lua("vim.cmd('Fyler kind=split_left_most')")
+	child.cmd("close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+end
 
 T["left integration"]["opening an integration should close the existing integration on the same side"] = function()
 	child.cmd("Fyler kind=split_left_most")
@@ -57,6 +95,45 @@ T["left integration"]["opening an integration should close the existing integrat
 			{ type = "leaf", filetype = "dbui", buftype = "nofile", width = 46, height = 50 },
 			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end
+
+T["left integration"]["opening a left integration preserves an existing bottom integration"] = function()
+	child.cmd("Trouble diagnostics")
+	child.cmd("Fyler kind=split_left_most")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("close")
+	child.cmd("Fyler kind=split_left_most")
+	child.cmd("close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
 		},
 	})
 end
@@ -118,6 +195,70 @@ T["top integration"]["opening an integration should close the existing integrati
 	})
 end
 
+T["top integration"]["closing a stacked top split returns cursor to the integration below it"] = function()
+	-- initialize a real temporary git repo with user identity so that
+	-- "Git commit --allow-empty" works deterministically in CI
+	child.lua([[
+		local tmpdir = vim.fn.tempname()
+		vim.fn.mkdir(tmpdir, "p")
+		vim.fn.system({ "git", "init", tmpdir })
+		vim.fn.system({ "git", "-C", tmpdir, "config", "user.name", "Test" })
+		vim.fn.system({ "git", "-C", tmpdir, "config", "user.email", "test@test.com" })
+		vim.fn.chdir(tmpdir)
+	]])
+	child.cmd("Git")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	-- move cursor to fugitive window and start a commit
+	child.lua([[
+		for _, win in ipairs(vim.api.nvim_list_wins()) do
+			local buf = vim.api.nvim_win_get_buf(win)
+			if vim.bo[buf].filetype == "fugitive" then
+				vim.api.nvim_set_current_win(win)
+				break
+			end
+		end
+	]])
+	child.cmd("Git commit --allow-empty")
+
+	-- close the commit editor (abort the commit)
+	child.cmd("bdelete!")
+
+	-- layout should be unchanged
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	-- cursor should be in the fugitive window
+	local ft = child.lua_get("vim.bo.filetype")
+	MiniTest.expect.equality(ft, "fugitive")
+end
+
 T["bottom integration"] = MiniTest.new_set({})
 
 T["bottom integration"]["opening"] = function()
@@ -177,6 +318,84 @@ end
 
 T["right integration"] = MiniTest.new_set({})
 
+T["right integration"]["opening a right integration preserves an existing top integration"] = function()
+	child.cmd("Git")
+	child.cmd("Neotest summary open")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	child.cmd("Neotest summary close")
+	child.cmd("Neotest summary open")
+	child.cmd("Neotest summary close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+end
+
+T["right integration"]["opening a right integration preserves an existing bottom integration"] = function()
+	child.cmd("Trouble diagnostics")
+	child.cmd("Neotest summary open")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("Neotest summary close")
+	child.cmd("Neotest summary open")
+	child.cmd("Neotest summary close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+end
+
 T["right integration"]["opening closes zen side buffer, closing reopens it"] = function()
 	child.cmd("Neotest summary open")
 
@@ -184,8 +403,8 @@ T["right integration"]["opening closes zen side buffer, closing reopens it"] = f
 		type = "row",
 		children = {
 			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
-			{ type = "leaf", filetype = "", buftype = "", width = 142, height = 50 },
-			{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 50, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 46, height = 50 },
 		},
 	})
 
@@ -208,8 +427,8 @@ T["right integration"]["opening an integration should close the existing integra
 		type = "row",
 		children = {
 			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
-			{ type = "leaf", filetype = "", buftype = "", width = 142, height = 50 },
-			{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 50, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 46, height = 50 },
 		},
 	})
 
@@ -251,6 +470,67 @@ T["right integration"]["opening an integration with table filetype"] = function(
 							{ type = "leaf", filetype = "dap-repl", buftype = "prompt", width = 99, height = 10 },
 						},
 					},
+				},
+			},
+		},
+	})
+end
+
+T["combined"] = MiniTest.new_set({})
+
+T["combined"]["opening a side integration preserves existing top and bottom integrations"] = function()
+	child.cmd("Git")
+	child.cmd("Trouble diagnostics")
+	child.cmd("Fyler kind=split_left_most")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 13 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 13 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 13 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("close")
+	child.cmd("Fyler kind=split_left_most")
+	child.cmd("close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 13 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 13 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 13 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("Trouble close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
 				},
 			},
 		},
