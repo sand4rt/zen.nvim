@@ -48,6 +48,8 @@ local function get_main_width()
 			monitor_name = vim.env.MONITOR
 		end
 		width = (monitor_name and width[monitor_name]) or width["*"]
+		-- If neither the specific monitor key nor "*" is present, width will be nil
+		-- and the subsequent type check will return default_width.
 	end
 	if type(width) ~= "number" then
 		return default_width

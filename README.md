@@ -93,12 +93,15 @@ require("zen").setup({
   main = {
     monitor_name = function()
       local ok, result = pcall(function()
-        local handle = assert(io.popen("hyprctl monitors -j"))
+        local handle = assert(io.popen("hyprctl monitors -j"), "failed to run hyprctl")
         local output = handle:read("*a")
         handle:close()
         return output
       end)
-      if not ok then return nil end
+      if not ok then
+        -- Returning nil falls back to $MONITOR and then to the "*" wildcard entry.
+        return nil
+      end
       local monitors = vim.json.decode(result)
       for _, mon in ipairs(monitors) do
         if mon.focused then return mon.name end
