@@ -248,55 +248,67 @@ local function setup(config)
 				return
 			end
 			in_handler = true
-			-- Re-contain any window that escaped the zen area via wincmd J/K
-			for _, window in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-				if vim.api.nvim_win_get_config(window).relative ~= "" then
-					goto continue
-				end
-				local ft = vim.bo[vim.api.nvim_win_get_buf(window)].filetype
-				if filetype_positions[ft] then
-					goto continue
-				end
-				if vim.api.nvim_win_get_width(window) < vim.o.columns then
-					goto continue
-				end
-				local height = vim.api.nvim_win_get_height(window)
-				for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-					if w == window then
-						goto skip
+			local ok, err = pcall(function()
+				-- Re-contain any window that escaped the zen area via wincmd J/K.
+				-- Such windows span the full terminal width instead of staying in
+				-- the center column between the zen side buffers.
+				for _, window in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+					if vim.api.nvim_win_get_config(window).relative ~= "" then
+						goto continue
 					end
-					if vim.api.nvim_win_get_config(w).relative ~= "" then
-						goto skip
+					local ft = vim.bo[vim.api.nvim_win_get_buf(window)].filetype
+					if filetype_positions[ft] then
+						goto continue
 					end
-					local wft = vim.bo[vim.api.nvim_win_get_buf(w)].filetype
-					if filetype_positions[wft] then
-						goto skip
+					if vim.api.nvim_win_get_width(window) < vim.o.columns then
+						goto continue
 					end
-					if vim.api.nvim_win_get_width(w) < vim.o.columns then
-						vim.api.nvim_win_set_config(window, { split = "below", win = w })
-						if vim.api.nvim_win_is_valid(window) then
-							vim.api.nvim_win_set_height(window, height)
+					local height = vim.api.nvim_win_get_height(window)
+					for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+						if w == window then
+							goto skip
 						end
-						break
+						if vim.api.nvim_win_get_config(w).relative ~= "" then
+							goto skip
+						end
+						local wft = vim.bo[vim.api.nvim_win_get_buf(w)].filetype
+						if filetype_positions[wft] then
+							goto skip
+						end
+						if vim.api.nvim_win_get_width(w) < vim.o.columns then
+							vim.api.nvim_win_set_config(window, { split = "below", win = w })
+							if vim.api.nvim_win_is_valid(window) then
+								vim.api.nvim_win_set_height(window, height)
+							end
+							break
+						end
+						::skip::
 					end
-					::skip::
+					::continue::
 				end
-				::continue::
-			end
-			-- Re-enforce widths for left/right integration windows after wincmd H/L
-			for ft, window in pairs(filetype_windows) do
-				local position = filetype_positions[ft]
-				if (position == "left" or position == "right") and ft ~= "zen-left" and ft ~= "zen-right" then
+				-- Re-enforce widths for left/right integration windows after wincmd H/L
+				for ft, window in pairs(filetype_windows) do
+					local position = filetype_positions[ft]
+					if position ~= "left" and position ~= "right" then
+						goto continue
+					end
+					if ft == "zen-left" or ft == "zen-right" then
+						goto continue
+					end
 					if vim.api.nvim_win_is_valid(window) then
 						local min_width = (min_widths[position] and min_widths[position][ft])
 							or wildcard_min_widths[position]
 							or 0
 						vim.api.nvim_win_set_width(window, math.max(min_width, get_padding_width()))
 					end
+					::continue::
 				end
-			end
-			resize_side_windows()
+				resize_side_windows()
+			end)
 			in_handler = false
+			if not ok then
+				error(err)
+			end
 		end,
 	})
 
