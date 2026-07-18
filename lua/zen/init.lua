@@ -3,7 +3,7 @@
 --- @class Integration
 --- @field filetype Filetype
 --- @field min_width? number
---- @field replace? boolean 
+--- @field replace? boolean
 
 --- @class Config
 --- @field main? { width: number | fun(): number; }
@@ -281,22 +281,24 @@ local function reposition_stack(position)
 		heights[win] = vim.api.nvim_win_get_height(win)
 	end
 
-	if position == "top" then
-		vim.api.nvim_win_set_config(windows[1], { split = "above", win = -1 })
-		for i = 2, #windows do
-			vim.api.nvim_win_set_config(windows[i], { split = "below", win = windows[i - 1] })
+	pcall(function()
+		if position == "top" then
+			vim.api.nvim_win_set_config(windows[1], { split = "above", win = -1 })
+			for i = 2, #windows do
+				vim.api.nvim_win_set_config(windows[i], { split = "below", win = windows[i - 1] })
+			end
+		else
+			vim.api.nvim_win_set_config(windows[#windows], { split = "below", win = -1 })
+			for i = #windows - 1, 1, -1 do
+				vim.api.nvim_win_set_config(windows[i], { split = "above", win = windows[i + 1] })
+			end
 		end
-	else
-		vim.api.nvim_win_set_config(windows[#windows], { split = "below", win = -1 })
-		for i = #windows - 1, 1, -1 do
-			vim.api.nvim_win_set_config(windows[i], { split = "above", win = windows[i + 1] })
-		end
-	end
 
-	for _, win in ipairs(windows) do
-		vim.api.nvim_win_set_height(win, heights[win])
-		vim.api.nvim_win_set_width(win, vim.o.columns)
-	end
+		for _, win in ipairs(windows) do
+			vim.api.nvim_win_set_height(win, heights[win])
+			vim.api.nvim_win_set_width(win, vim.o.columns)
+		end
+	end)
 end
 
 ---@param position "top" | "bottom"
@@ -369,6 +371,9 @@ local function setup(options)
 	vim.api.nvim_create_autocmd("CursorMoved", {
 		-- TODO: use pattern for better perf
 		callback = function(args)
+			if vim.o.columns <= get_main_width() then
+				return
+			end
 			if is_buff_integration(args.buf) then
 				local buf_info = vim.fn.getbufinfo(args.buf)
 

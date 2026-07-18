@@ -36,7 +36,6 @@ T["left integration"]["opening closes zen side buffer, closing reopens it"] = fu
 	})
 end
 
-
 T["left integration"]["opening an integration should close the existing integration on the same side"] = function()
 	child.cmd("Fyler kind=split_left_most")
 
@@ -57,6 +56,20 @@ T["left integration"]["opening an integration should close the existing integrat
 			{ type = "leaf", filetype = "dbui", buftype = "nofile", width = 46, height = 50 },
 			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end
+
+T["left integration"]["opening an integration on a small window"] = function()
+	child.restart({ "-u", "tests/scripts/init_with_zen_small.lua" })
+
+	child.cmd("Fyler kind=split_left_most")
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 35, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 104, height = 50 },
 		},
 	})
 end
@@ -118,8 +131,7 @@ T["top integration"]["opening an integration should close the existing integrati
 	})
 end
 
-
-for _, case in ipairs({ { name = "above", }, { name = "below", } }) do
+for _, case in ipairs({ { name = "above" }, { name = "below" } }) do
 	T["top integration"]["stacks " .. case.name .. " when configured " .. case.name .. " with replace=false"] = function()
 		if case.name == "below" then
 			child.restart({ "-u", "tests/scripts/init_with_zen_top_order.lua" })
@@ -200,6 +212,41 @@ for _, case in ipairs({ { name = "above", }, { name = "below", } }) do
 			},
 		})
 	end
+end
+
+T["top integration"]["closing a git commit keeps the top and bottom stacks intact"] = function()
+	child.lua([[
+		local tmpdir = vim.fn.tempname()
+		vim.fn.mkdir(tmpdir, "p")
+		vim.fn.system({ "git", "init", tmpdir })
+		vim.fn.system({ "git", "-C", tmpdir, "config", "user.name", "Test" })
+		vim.fn.system({ "git", "-C", tmpdir, "config", "user.email", "test@test.com" })
+		vim.fn.system({ "git", "-C", tmpdir, "commit", "--allow-empty", "-m", "initial" })
+		vim.fn.writefile({ "hello" }, tmpdir .. "/file")
+		vim.cmd("edit " .. tmpdir .. "/file")
+	]])
+
+	child.cmd("Git")
+	child.cmd("Trouble diagnostics")
+	child.cmd("wincmd t")
+	child.cmd("Git commit --allow-empty")
+	child.cmd("q")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 13 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 13 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 13 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
 end
 
 T["bottom integration"] = MiniTest.new_set({})
