@@ -36,6 +36,44 @@ T["left integration"]["opening closes zen side buffer, closing reopens it"] = fu
 	})
 end
 
+T["left integration"]["opening a left integration preserves an existing top integration"] = function()
+	child.cmd("Git")
+	child.lua("vim.cmd('Fyler kind=split_left_most')")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+
+	child.cmd("close")
+	child.lua("vim.cmd('Fyler kind=split_left_most')")
+	child.cmd("close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+end
 
 T["left integration"]["opening an integration should close the existing integration on the same side"] = function()
 	child.cmd("Fyler kind=split_left_most")
@@ -57,6 +95,45 @@ T["left integration"]["opening an integration should close the existing integrat
 			{ type = "leaf", filetype = "dbui", buftype = "nofile", width = 46, height = 50 },
 			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end
+
+T["left integration"]["opening a left integration preserves an existing bottom integration"] = function()
+	child.cmd("Trouble diagnostics")
+	child.cmd("Fyler kind=split_left_most")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("close")
+	child.cmd("Fyler kind=split_left_most")
+	child.cmd("close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 39 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
 		},
 	})
 end
@@ -257,9 +334,70 @@ T["right integration"]["opening an integration with table filetype"] = function(
 	})
 end
 
+T["combined"] = MiniTest.new_set({})
+
+T["combined"]["opening a side integration preserves existing top and bottom integrations"] = function()
+	child.cmd("Git")
+	child.cmd("Trouble diagnostics")
+	child.cmd("Fyler kind=split_left_most")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 13 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 13 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 13 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("close")
+	child.cmd("Fyler kind=split_left_most")
+	child.cmd("close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 13 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 13 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 13 },
+				},
+			},
+			{ type = "leaf", filetype = "trouble", buftype = "nofile", width = 240, height = 10 },
+		},
+	})
+
+	child.cmd("Trouble close")
+
+	Helpers.expect.layout(child, {
+		type = "col",
+		children = {
+			{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+				},
+			},
+		},
+	})
+end
+
 local min_width_child = MiniTest.new_child_neovim()
 
-T["min_width"] = MiniTest.new_set({
+T["min width"] = MiniTest.new_set({
 	hooks = {
 		pre_case = function()
 			min_width_child.restart({ "-u", "tests/scripts/init_with_zen_min_width.lua" })
@@ -268,7 +406,7 @@ T["min_width"] = MiniTest.new_set({
 	},
 })
 
-T["min_width"]["integration with a larger min_width should override the wildcard default"] = function()
+T["min width"]["integration with a larger min_width should override the wildcard default"] = function()
 	min_width_child.lua([[vim.o.splitright = true; require("CopilotChat").open()]])
 
 	Helpers.expect.layout(min_width_child, {
@@ -277,6 +415,36 @@ T["min_width"]["integration with a larger min_width should override the wildcard
 			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
 			{ type = "leaf", filetype = "", buftype = "", width = 132, height = 50 },
 			{ type = "leaf", filetype = "copilot-chat", buftype = "nofile", width = 60, height = 50 },
+		},
+	})
+end
+
+T["small window integration"] = MiniTest.new_set()
+
+T["small window integration"]["left integration should keep its natural width"] = function()
+	child.restart({ "-u", "tests/scripts/init_with_zen_small.lua" })
+	child.cmd("Fyler kind=split_left_most")
+
+	-- Fyler opens at 30% of 140 = 42 cols. Zen must not force it to 0.
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 42, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 97, height = 50 },
+		},
+	})
+end
+
+T["small window integration"]["right integration should keep its natural width"] = function()
+	child.restart({ "-u", "tests/scripts/init_with_zen_small.lua" })
+	child.cmd("Neotest summary open")
+
+	-- Neotest opens at vertical resize 50. Zen must not force it to 0.
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "", buftype = "", width = 89, height = 50 },
+			{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 50, height = 50 },
 		},
 	})
 end
