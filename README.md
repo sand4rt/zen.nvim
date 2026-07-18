@@ -31,9 +31,10 @@ return {
     },
     -- TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
     top = {
+      { filetype = "gitcommit", replace = false },
+      { filetype = "fugitive" },
       { filetype = "man" },
       { filetype = "help" },
-      { filetype = "fugitive" },
     },
     right = {
       { filetype = "*", min_width = 46 },
@@ -80,16 +81,13 @@ programs.nvf.settings.vim.lazy.plugins = {
     event = [ "BufEnter" ];
     setupModule = "zen";
     setupOpts = {
-      main = {
-        width = 148;
-      };
+      main.width = 148;
       # TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
       top = [
+        { filetype = "gitcommit"; replace = false; }
         { filetype = "fugitive"; }
-        { filetype = "git"; }
         { filetype = "man"; }
         { filetype = "help"; }
-        { filetype = "gitcommit"; }
       ];
       right = [
         { filetype = "*"; min_width = 46; }

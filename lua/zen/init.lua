@@ -3,6 +3,7 @@
 --- @class Integration
 --- @field filetype Filetype
 --- @field min_width? number
+--- @field replace? boolean 
 
 --- @class Config
 --- @field main? { width: number | fun(): number; }
@@ -196,14 +197,6 @@ local function get_vsplits()
 	return vsplits
 end
 
----@return boolean
-local function is_hsplit(buf)
-	local win_id = vim.fn.bufwinid(buf)
-	local width = vim.api.nvim_win_get_width(win_id)
-	local height = vim.api.nvim_win_get_height(win_id)
-	return width > height
-end
-
 ---@param position "top" | "right" | "bottom" | "left"
 ---@return boolean
 local function is_integration_open(position)
@@ -233,12 +226,113 @@ local function get_window_by_filetype(filetype)
 	return nil
 end
 
-local function adjust_top_bottom_window_hack(target_window, position)
-	if target_window then
-		vim.api.nvim_win_call(target_window, function()
-			vim.cmd("wincmd " .. position)
-		end)
+---@param position "top" | "bottom"
+---@return number[]
+local function get_ordered_stack_windows(position)
+	local windows = {}
+	for _, integration in ipairs(opts[position]) do
+		if type(integration) == "table" and integration.filetype ~= "*" then
+			local win = get_window_by_filetype(integration.filetype)
+			if win then
+				table.insert(windows, win)
+			end
+		end
 	end
+	return windows
+end
+
+--- Stacks the open `top`/`bottom` integration windows on top of each other,
+--- full width, in the order they appear in the config: for `top`, the first
+--- configured integration ends up closest to the very top edge of the screen
+--- and the last one closest to the main area; for `bottom` it is the mirror
+--- (first closest to the main area, last closest to the very bottom edge).
+---@param position "top" | "bottom"
+local function reposition_stack(position)
+	local windows = get_ordered_stack_windows(position)
+	if #windows == 0 then
+		return
+	end
+
+	-- already full width and in the desired relative order (top-to-bottom):
+	-- nothing to do, since re-splitting would needlessly renegotiate heights
+	local in_order = true
+	for _, win in ipairs(windows) do
+		if vim.api.nvim_win_get_width(win) ~= vim.o.columns then
+			in_order = false
+			break
+		end
+	end
+	if in_order then
+		for i = 2, #windows do
+			if vim.api.nvim_win_get_position(windows[i])[1] < vim.api.nvim_win_get_position(windows[i - 1])[1] then
+				in_order = false
+				break
+			end
+		end
+	end
+	if in_order then
+		return
+	end
+
+	-- splitting a window relative to another renegotiates both windows'
+	-- heights, so snapshot and restore them once the whole stack is in order
+	local heights = {}
+	for _, win in ipairs(windows) do
+		heights[win] = vim.api.nvim_win_get_height(win)
+	end
+
+	if position == "top" then
+		vim.api.nvim_win_set_config(windows[1], { split = "above", win = -1 })
+		for i = 2, #windows do
+			vim.api.nvim_win_set_config(windows[i], { split = "below", win = windows[i - 1] })
+		end
+	else
+		vim.api.nvim_win_set_config(windows[#windows], { split = "below", win = -1 })
+		for i = #windows - 1, 1, -1 do
+			vim.api.nvim_win_set_config(windows[i], { split = "above", win = windows[i + 1] })
+		end
+	end
+
+	for _, win in ipairs(windows) do
+		vim.api.nvim_win_set_height(win, heights[win])
+		vim.api.nvim_win_set_width(win, vim.o.columns)
+	end
+end
+
+---@param position "top" | "bottom"
+---@return number height, number count combined height and number of open stack windows
+local function stack_metrics(position)
+	local windows = get_ordered_stack_windows(position)
+	local height = 0
+	for _, win in ipairs(windows) do
+		height = height + vim.api.nvim_win_get_height(win)
+	end
+	return height, #windows
+end
+
+--- Closing a stacked `top`/`bottom` window frees its content plus its one
+--- statusline row, but Neovim may hand that freed row to the main area instead
+--- of the surviving stack window. Given the stack's height/count from before
+--- the close, grow the survivor closest to the main area back to the height the
+--- stack should now have (its old height plus the closed window's freed row).
+---@param position "top" | "bottom"
+---@param before_height number stack height captured before the close
+---@param before_count number stack window count captured before the close
+local function reclaim_stack_height(position, before_height, before_count)
+	local windows = get_ordered_stack_windows(position)
+	-- nothing to do if this stack didn't lose a window, or lost them all
+	if #windows == 0 or #windows >= before_count then
+		return
+	end
+
+	local height = stack_metrics(position)
+	local deficit = before_height + 1 - height
+	if deficit <= 0 then
+		return
+	end
+
+	local boundary = position == "top" and windows[#windows] or windows[1]
+	vim.api.nvim_win_set_height(boundary, vim.api.nvim_win_get_height(boundary) + deficit)
 end
 
 local function resize_side_buffers()
@@ -408,6 +502,19 @@ local function setup(options)
 				return
 			end
 
+			-- `WinClosed` fires just before the window is removed, so the stacks
+			-- still have their pre-close heights here. Capture them and reclaim
+			-- any slack from `WinResized`, which fires once the close has settled.
+			local top_height, top_count = stack_metrics("top")
+			local bottom_height, bottom_count = stack_metrics("bottom")
+			vim.api.nvim_create_autocmd("WinResized", {
+				once = true,
+				callback = function()
+					reclaim_stack_height("top", top_height, top_count)
+					reclaim_stack_height("bottom", bottom_height, bottom_count)
+				end,
+			})
+
 			local buf_id = vim.fn.winbufnr(win_id)
 			local file_type = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
 			local buf_type = vim.api.nvim_get_option_value("buftype", { buf = buf_id })
@@ -434,12 +541,8 @@ local function setup(options)
 				vim.cmd("wincmd h")
 			end
 
-			for _, integration in pairs(opts.top) do
-				adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "K")
-			end
-			for _, integration in pairs(opts.bottom) do
-				adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "J")
-			end
+			reposition_stack("top")
+			reposition_stack("bottom")
 			resize_side_buffers()
 		end,
 		desc = "Recreate the side buffers if they are closed.",
@@ -471,14 +574,17 @@ local function setup(options)
 				for _, integration in pairs(opts[position]) do
 					if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
 						close_side_buffer(position)
-						for _, position_inner in ipairs(positions) do
-							for _, integration_inner in pairs(opts[position_inner]) do
-								if
-									position_inner == position
-									and type(integration_inner) == "table"
-									and not is_filetype(filetype, integration_inner.filetype)
-								then
-									close(integration_inner.filetype)
+						if integration.replace ~= false then
+							for _, position_inner in ipairs(positions) do
+								for _, integration_inner in pairs(opts[position_inner]) do
+									if
+										position_inner == position
+										and type(integration_inner) == "table"
+										and integration_inner.replace ~= false
+										and not is_filetype(filetype, integration_inner.filetype)
+									then
+										close(integration_inner.filetype)
+									end
 								end
 							end
 						end
@@ -499,16 +605,8 @@ local function setup(options)
 				end
 			end
 
-			for _, integration in pairs(opts.top) do
-				if not is_hsplit(args.buf) then
-					adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "K")
-				end
-			end
-			for _, integration in pairs(opts.bottom) do
-				if not is_hsplit(args.buf) then
-					adjust_top_bottom_window_hack(get_window_by_filetype(integration.filetype), "J")
-				end
-			end
+			reposition_stack("top")
+			reposition_stack("bottom")
 			resize_side_buffers()
 		end,
 		desc = "Close side buffer plugins if another plugin is already occupying that side.",
