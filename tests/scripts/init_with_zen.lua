@@ -13,6 +13,7 @@ require("CopilotChat").setup({})
 
 require("zen").setup({
 	top = {
+		{ filetype = "gitcommit", replace = false },
 		{ filetype = "fugitive" },
 		{ filetype = "man" },
 	},

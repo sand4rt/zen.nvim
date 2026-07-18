@@ -118,6 +118,90 @@ T["top integration"]["opening an integration should close the existing integrati
 	})
 end
 
+
+for _, case in ipairs({ { name = "above", }, { name = "below", } }) do
+	T["top integration"]["stacks " .. case.name .. " when configured " .. case.name .. " with replace=false"] = function()
+		if case.name == "below" then
+			child.restart({ "-u", "tests/scripts/init_with_zen_top_order.lua" })
+		end
+
+		child.lua([[
+			local tmpdir = vim.fn.tempname()
+			vim.fn.mkdir(tmpdir, "p")
+			vim.fn.system({ "git", "init", tmpdir })
+			vim.fn.system({ "git", "-C", tmpdir, "config", "user.name", "Test" })
+			vim.fn.system({ "git", "-C", tmpdir, "config", "user.email", "test@test.com" })
+			vim.fn.system({ "git", "-C", tmpdir, "commit", "--allow-empty", "-m", "initial" })
+			vim.fn.writefile({ "hello" }, tmpdir .. "/file")
+			vim.cmd("edit " .. tmpdir .. "/file")
+		]])
+
+		child.cmd("Git")
+
+		Helpers.expect.layout(child, {
+			type = "col",
+			children = {
+				{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+				{
+					type = "row",
+					children = {
+						{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+						{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+						{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+					},
+				},
+			},
+		})
+
+		child.cmd("Git commit --allow-empty")
+
+		Helpers.expect.layout(child, {
+			type = "col",
+			children = {
+				{
+					type = "leaf",
+					filetype = case.name == "above" and "gitcommit" or "fugitive",
+					buftype = case.name == "above" and "" or "nowrite",
+					width = 240,
+					height = 12,
+				},
+				{
+					type = "leaf",
+					filetype = case.name == "above" and "fugitive" or "gitcommit",
+					buftype = case.name == "above" and "nowrite" or "",
+					width = 240,
+					height = 12,
+				},
+				{
+					type = "row",
+					children = {
+						{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+						{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+						{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+					},
+				},
+			},
+		})
+
+		child.cmd("q")
+
+		Helpers.expect.layout(child, {
+			type = "col",
+			children = {
+				{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+				{
+					type = "row",
+					children = {
+						{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 24 },
+						{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+						{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+					},
+				},
+			},
+		})
+	end
+end
+
 T["bottom integration"] = MiniTest.new_set({})
 
 T["bottom integration"]["opening"] = function()
