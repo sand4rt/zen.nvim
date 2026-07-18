@@ -420,7 +420,7 @@ local function setup(options)
 				return
 			end
 
-			local left_file_types = { "fugitiveblame", "fyler", "undotree", "dbui", "zen-left" }
+			local left_file_types = { "fugitiveblame", "fyler_finder", "undotree", "dbui", "zen-left" }
 			remove_file_type(left_file_types, file_type)
 			if not filetypes_visible(left_file_types) then
 				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")

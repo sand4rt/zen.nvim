@@ -22,7 +22,7 @@ require("zen").setup({
 	},
 	left = {
 		{ filetype = "*", min_width = 46 },
-		{ filetype = "fyler" },
+		{ filetype = "fyler_finder" },
 		{ filetype = "dbui" },
 	},
 	right = {
