@@ -50,7 +50,7 @@ return {
     left = {
       { filetype = "*", min_width = 46 },
       { filetype = "fugitiveblame" },
-      { filetype = "fyler" },
+      { filetype = "fyler_finder" },
       { filetype = "neotree" },
       { filetype = "dbui" },
       { filetype = { "undotree", "diff" } },
@@ -106,7 +106,7 @@ programs.nvf.settings.vim.lazy.plugins = {
       left = [
         { filetype = "*"; min_width = 46; }
         { filetype = "fugitiveblame"; }
-        { filetype = "fyler"; }
+        { filetype = "fyler_finder"; }
         { filetype = "neotree"; }
         { filetype = "dbui"; }
         { filetype = [ "undotree" "diff" ]; }
