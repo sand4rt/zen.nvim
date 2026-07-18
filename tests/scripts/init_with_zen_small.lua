@@ -17,7 +17,7 @@ require("zen").setup({
 	},
 	left = {
 		{ filetype = "*", min_width = 46 },
-		{ filetype = "fyler" },
+		{ filetype = "fyler_finder" },
 	},
 	right = {
 		{ filetype = "*", min_width = 46 },

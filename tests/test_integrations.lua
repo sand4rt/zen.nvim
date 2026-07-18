@@ -18,7 +18,7 @@ T["left integration"]["opening closes zen side buffer, closing reopens it"] = fu
 	Helpers.expect.layout(child, {
 		type = "row",
 		children = {
-			{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 50 },
+			{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 50 },
 			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
 		},
@@ -43,7 +43,7 @@ T["left integration"]["opening an integration should close the existing integrat
 	Helpers.expect.layout(child, {
 		type = "row",
 		children = {
-			{ type = "leaf", filetype = "fyler", buftype = "acwrite", width = 46, height = 50 },
+			{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 50 },
 			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
 		},
