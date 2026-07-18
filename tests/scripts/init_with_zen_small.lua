@@ -9,18 +9,8 @@ require("trouble").setup({ open_no_results = true })
 require("fyler").setup({})
 require("neotest").setup({ adapters = {} })
 require("zen").setup({
-	top = {
-		{ filetype = "fugitive" },
-	},
-	bottom = {
-		{ filetype = "trouble" },
-	},
-	left = {
-		{ filetype = "*", min_width = 46 },
-		{ filetype = "fyler_finder" },
-	},
-	right = {
-		{ filetype = "*", min_width = 46 },
-		{ filetype = "neotest-summary" },
-	},
+	top = { { filetype = "fugitive" } },
+	bottom = { { filetype = "trouble" } },
+	left = { { filetype = "fyler_finder" } },
+	right = { { filetype = "neotest-summary" } },
 })
