@@ -281,6 +281,12 @@ local function reposition_stack(position)
 		heights[win] = vim.api.nvim_win_get_height(win)
 	end
 
+	-- Some Neovim versions raise `E242: Can't split a window while closing
+	-- another` when this runs from a handler that fires midway through a window
+	-- close (e.g. `WinClosed` recreating a side buffer, whose `BufWinEnter`
+	-- reaches here before the original close has unwound). Guard the splits so
+	-- that refusal cannot abort the surrounding close handler; the reposition is
+	-- re-run by that handler once the offending close has settled.
 	pcall(function()
 		if position == "top" then
 			vim.api.nvim_win_set_config(windows[1], { split = "above", win = -1 })

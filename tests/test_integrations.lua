@@ -215,6 +215,11 @@ for _, case in ipairs({ { name = "above" }, { name = "below" } }) do
 end
 
 T["top integration"]["closing a git commit keeps the top and bottom stacks intact"] = function()
+	-- Regression: creating a commit in fugitive and then closing the gitcommit
+	-- window used to abort the reposition handlers with `E242: Can't split a
+	-- window while closing another`, because recreating a side buffer on
+	-- `WinClosed` re-enters `reposition_stack` mid-close. The close must leave
+	-- the fugitive (top) and trouble (bottom) stacks intact instead.
 	child.lua([[
 		local tmpdir = vim.fn.tempname()
 		vim.fn.mkdir(tmpdir, "p")
