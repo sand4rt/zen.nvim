@@ -25,6 +25,19 @@ T["vsplit"]["opening closes zen side buffers"] = function()
 	})
 end
 
+T["vsplit"]["splitting the current buffer closes zen side buffers"] = function()
+	child.cmd("edit test.lua")
+	child.cmd("vsplit")
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "lua", buftype = "", width = 120, height = 50 },
+			{ type = "leaf", filetype = "lua", buftype = "", width = 119, height = 50 },
+		},
+	})
+end
+
 T["vsplit"]["closing reopens zen side buffers"] = function()
 	child.cmd("edit test.lua")
 	child.cmd("vsplit test2.lua")
