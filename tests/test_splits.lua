@@ -49,6 +49,21 @@ describe("vsplit", function()
 		})
 	end)
 
+	it("reopening zen side buffers after a split keeps them open", function()
+		child.cmd("edit test.lua")
+		child.cmd("vsplit")
+		child.cmd("q")
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+				{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+			},
+		})
+	end)
+
 	it("closing does not reopen zen side buffers when below minimum width", function()
 		child.cmd("edit test.lua")
 		child.cmd("vsplit test2.lua")
