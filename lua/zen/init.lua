@@ -31,6 +31,7 @@ local opts = {
 local state = {
 	[vim.api.nvim_get_current_tabpage()] = { left = nil, right = nil },
 }
+local is_creating_side_window = false
 
 local function get_main_width()
 	local width = opts.main and opts.main.width
@@ -44,6 +45,7 @@ local function get_main_width()
 end
 
 local function create_window(position)
+	is_creating_side_window = true
 	if position == "left" then
 		vim.cmd("topleft vnew")
 	elseif position == "right" then
@@ -62,6 +64,7 @@ local function create_window(position)
 	vim.api.nvim_set_option_value("filetype", "zen-" .. position, { buf = buf_id })
 	vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf_id })
 	vim.api.nvim_set_option_value("buflisted", false, { buf = buf_id })
+	is_creating_side_window = false
 
 	return vim.api.nvim_get_current_win()
 end
@@ -563,6 +566,9 @@ local function setup(options)
 		pattern = "*",
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
+				return
+			end
+			if args.event == "WinNew" and is_creating_side_window then
 				return
 			end
 			local filetype = vim.bo[args.buf].filetype
