@@ -1,16 +1,13 @@
 local Helpers = dofile("tests/scripts/helpers.lua")
 local child = MiniTest.new_child_neovim()
 
-local T = MiniTest.new_set({
-	hooks = {
-		pre_case = function()
-			child.restart({ "-u", "tests/scripts/init_with_zen.lua" })
-		end,
-		post_once = child.stop,
-	},
-})
+before_each(function()
+	child.restart({ "-u", "tests/scripts/init_with_zen.lua" })
+end)
 
-T["open zen side buffers on a new tab"] = function()
+teardown(child.stop)
+
+it("opens zen side buffers on a new tab", function()
 	child.cmd("tabnew")
 
 	Helpers.expect.layout(child, {
@@ -21,10 +18,9 @@ T["open zen side buffers on a new tab"] = function()
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 49 },
 		},
 	})
-end
+end)
 
-
-T["close tab on last main quit"] = function()
+it("closes tab on last main quit", function()
 	child.cmd("tabnew")
 	child.cmd("q")
 
@@ -36,6 +32,4 @@ T["close tab on last main quit"] = function()
 			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
 		},
 	})
-end
-
-return T
+end)
