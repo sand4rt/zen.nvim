@@ -559,7 +559,7 @@ local function setup(options)
 		desc = "Recreate the side buffers if they are closed.",
 	})
 
-	vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType" }, {
+	vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType", "WinNew" }, {
 		pattern = "*",
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
@@ -567,7 +567,7 @@ local function setup(options)
 			end
 			local filetype = vim.bo[args.buf].filetype
 			local is_integration = is_buff_integration(args.buf)
-			if args.event == "BufWinEnter" then
+			if args.event == "BufWinEnter" or args.event == "WinNew" then
 				if filetype ~= "" and not is_integration and vim.tbl_count(get_vsplits()) >= 2 then
 					close_side_buffer("left")
 					close_side_buffer("right")

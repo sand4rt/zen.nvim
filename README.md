@@ -68,16 +68,7 @@ return {
 ```nix
 programs.nvf.settings.vim.lazy.plugins = {
   "zen.nvim" = {
-    package = pkgs.vimUtils.buildVimPlugin {
-      pname = "zen.nvim";
-      version = "1.0.0";
-      src = pkgs.fetchFromGitHub {
-        owner = "sand4rt";
-        repo = "zen.nvim";
-        rev = "v1.0.0";
-        sha256 = "sha256-SVDf8K/eo8N9Hrx2rzMnW2uBDGWaJ8TZZNB/qdfJPfE=";
-      };
-    };
+    package = pkgs.vimPlugins.zen-nvim;
     event = [ "BufEnter" ];
     setupModule = "zen";
     setupOpts = {
