@@ -27,6 +27,11 @@ return {
   lazy = false,
   opts = {
     main = {
+      -- `width` accepts a number, a function returning a number,
+      -- or a table mapping monitor names to widths.
+      -- Use "*" as the wildcard/default key in the table.
+      -- Provide `monitor_name` (a function returning a string) to enable
+      -- per-monitor table lookups; without it the $MONITOR env var is tried.
       width = 148, -- or vim.wo.colorcolumn
     },
     -- TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
@@ -58,6 +63,68 @@ return {
     },
   },
 }
+```
+
+</details>
+
+<details>
+<summary>Multi-monitor / dynamic width</summary>
+
+`width` in `main` can be a **number**, a **function**, or a **table** mapping monitor names to widths.
+Use `"*"` as the wildcard that is returned when no specific monitor key matches.
+
+When `width` is a table the plugin resolves the current monitor name by calling the optional
+`monitor_name` function you provide. If `monitor_name` is omitted the `$MONITOR` environment
+variable is tried before falling back to `"*"`.
+
+```lua
+-- Simple table – relies on $MONITOR env var for resolution
+require("zen").setup({
+  main = {
+    width = {
+      ["*"]    = 148,  -- default / fallback
+      ["DP-1"] = 110,  -- 1080p external
+      ["eDP-1"] = 85,  -- laptop built-in display
+    },
+  },
+})
+
+-- Table with an explicit resolver (Hyprland example)
+require("zen").setup({
+  main = {
+    monitor_name = function()
+      local ok, result = pcall(function()
+        local handle = assert(io.popen("hyprctl monitors -j"), "failed to run hyprctl")
+        local output = handle:read("*a")
+        handle:close()
+        return output
+      end)
+      if not ok then
+        -- Returning nil falls back to $MONITOR and then to the "*" wildcard entry.
+        return nil
+      end
+      local monitors = vim.json.decode(result)
+      for _, mon in ipairs(monitors) do
+        if mon.focused then return mon.name end
+      end
+    end,
+    width = {
+      ["*"]    = 148,
+      ["DP-1"] = 110,
+      ["eDP-1"] = 85,
+    },
+  },
+})
+
+-- Function – full dynamic control
+require("zen").setup({
+  main = {
+    width = function()
+      -- return any number based on runtime conditions
+      return vim.o.columns > 200 and 148 or 110
+    end,
+  },
+})
 ```
 
 </details>
