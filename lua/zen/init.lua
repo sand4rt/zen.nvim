@@ -128,29 +128,29 @@ local function close_side_buffer(position)
 	end
 end
 
----@param filetypes string[]
+---@param position "left" | "right"
+---@param exclude_win? number
 ---@return boolean
-local function filetypes_visible(filetypes)
+local function is_side_integration_visible(position, exclude_win)
+	local side_filetype = "zen-" .. position
 	for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-		local buf_id = vim.api.nvim_win_get_buf(win_id)
-		if vim.api.nvim_buf_is_valid(buf_id) and vim.api.nvim_buf_is_loaded(buf_id) then
-			if vim.tbl_contains(filetypes, vim.api.nvim_get_option_value("filetype", { buf = buf_id })) then
-				return true
+		if win_id ~= exclude_win then
+			local buf_id = vim.api.nvim_win_get_buf(win_id)
+			if vim.api.nvim_buf_is_valid(buf_id) and vim.api.nvim_buf_is_loaded(buf_id) then
+				local filetype = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
+				if filetype == side_filetype then
+					return true
+				end
+				for _, integration in ipairs(opts[position]) do
+					---@diagnostic disable-next-line: undefined-field
+					if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
+						return true
+					end
+				end
 			end
 		end
 	end
 	return false
-end
-
----@param filetypes string[]
----@param type_to_remove string
-local function remove_file_type(filetypes, type_to_remove)
-	for i, filetype in ipairs(filetypes) do
-		if filetype == type_to_remove then
-			table.remove(filetypes, i)
-			break
-		end
-	end
 end
 
 ---@param buf number
@@ -546,7 +546,6 @@ local function setup(options)
 			})
 
 			local buf_id = vim.fn.winbufnr(win_id)
-			local file_type = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
 			local buf_type = vim.api.nvim_get_option_value("buftype", { buf = buf_id })
 			-- do not recreate when multiple vsplits are active
 			local count = vim.tbl_count(get_vsplits())
@@ -557,17 +556,13 @@ local function setup(options)
 				return
 			end
 
-			local left_file_types = { "fugitiveblame", "fyler_finder", "undotree", "dbui", "zen-left" }
-			remove_file_type(left_file_types, file_type)
-			if not filetypes_visible(left_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
+			if not is_side_integration_visible("left", win_id) then
+				get_tab_state().left = create_window("left")
 				vim.cmd("wincmd l")
 			end
 
-			local right_file_types = { "dapui_scopes", "neotest-summary", "zen-right" }
-			remove_file_type(right_file_types, file_type)
-			if not filetypes_visible(right_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
+			if not is_side_integration_visible("right", win_id) then
+				get_tab_state().right = create_window("right")
 				vim.cmd("wincmd h")
 			end
 

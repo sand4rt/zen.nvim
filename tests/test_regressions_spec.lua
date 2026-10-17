@@ -30,6 +30,27 @@ describe("tabpage created while zen is disabled", function()
 	end)
 end)
 
+describe("integration not covered by the recreate lists", function()
+	it("closing a split does not reopen zen-right beside copilot-chat", function()
+		-- Regression: `copilot-chat` replaced zen-right when it opened, but
+		-- the WinClosed handler decided whether to recreate zen-right from a
+		-- hardcoded filetype list that does not contain `copilot-chat`, so
+		-- closing any split recreated zen-right next to it.
+		child.lua([[vim.o.splitright = true; require("CopilotChat").open()]])
+		child.cmd("vsplit")
+		child.cmd("q")
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+				{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "copilot-chat", buftype = "nofile", width = 46, height = 50 },
+			},
+		})
+	end)
+end)
+
 describe("calling setup twice", function()
 	it("does not duplicate the side buffers on startup", function()
 		-- Regression: setup() created every autocmd again without a
