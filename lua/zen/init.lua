@@ -44,6 +44,11 @@ local function get_main_width()
 	return width
 end
 
+---@return number
+local function get_side_margin()
+	return math.floor((vim.o.columns - get_main_width()) / 2)
+end
+
 local function create_window(position)
 	is_creating_side_window = true
 	if position == "left" then
@@ -53,7 +58,7 @@ local function create_window(position)
 	end
 
 	local win_id = vim.api.nvim_get_current_win()
-	vim.api.nvim_win_set_width(win_id, math.floor((vim.o.columns - get_main_width()) / 2))
+	vim.api.nvim_win_set_width(win_id, get_side_margin())
 	vim.api.nvim_set_option_value("winfixwidth", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("winfixbuf", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("cursorline", false, { scope = "local", win = win_id })
@@ -109,6 +114,13 @@ local function get_side_buffer(position)
 	return -1
 end
 
+---@return table
+local function get_tab_state()
+	local current_tabpage = vim.api.nvim_get_current_tabpage()
+	state[current_tabpage] = state[current_tabpage] or { left = nil, right = nil }
+	return state[current_tabpage]
+end
+
 local function close_side_buffer(position)
 	local window = get_side_buffer(position)
 	if window and vim.api.nvim_win_is_valid(window) then
@@ -121,29 +133,29 @@ local function close_side_buffer(position)
 	end
 end
 
----@param filetypes string[]
+---@param position "left" | "right"
+---@param exclude_win? number
 ---@return boolean
-local function filetypes_visible(filetypes)
+local function is_side_integration_visible(position, exclude_win)
+	local side_filetype = "zen-" .. position
 	for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-		local buf_id = vim.api.nvim_win_get_buf(win_id)
-		if vim.api.nvim_buf_is_valid(buf_id) and vim.api.nvim_buf_is_loaded(buf_id) then
-			if vim.tbl_contains(filetypes, vim.api.nvim_get_option_value("filetype", { buf = buf_id })) then
-				return true
+		if win_id ~= exclude_win then
+			local buf_id = vim.api.nvim_win_get_buf(win_id)
+			if vim.api.nvim_buf_is_valid(buf_id) and vim.api.nvim_buf_is_loaded(buf_id) then
+				local filetype = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
+				if filetype == side_filetype then
+					return true
+				end
+				for _, integration in ipairs(opts[position]) do
+					---@diagnostic disable-next-line: undefined-field
+					if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
+						return true
+					end
+				end
 			end
 		end
 	end
 	return false
-end
-
----@param filetypes string[]
----@param type_to_remove string
-local function remove_file_type(filetypes, type_to_remove)
-	for i, filetype in ipairs(filetypes) do
-		if filetype == type_to_remove then
-			table.remove(filetypes, i)
-			break
-		end
-	end
 end
 
 ---@param buf number
@@ -164,23 +176,24 @@ local function is_buff_integration(buf)
 	return false
 end
 
----@return table
-local function get_editable_files()
-	local editable_files = {}
-	local windows = vim.api.nvim_list_wins()
-	for _, win in ipairs(windows) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		if not is_buff_integration(buf) then -- is an actual file
-			editable_files[buf] = buf
-		end
-	end
-	return editable_files
-end
-
 ---@param win_id number
 ---@return boolean
 local function is_popup_window(win_id)
 	return vim.api.nvim_win_get_config(win_id).relative ~= ""
+end
+
+---@return number
+local function count_editable_windows()
+	local count = 0
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		if not is_popup_window(win) then
+			local buf = vim.api.nvim_win_get_buf(win)
+			if not is_buff_integration(buf) then
+				count = count + 1
+			end
+		end
+	end
+	return count
 end
 
 ---@return table
@@ -347,7 +360,7 @@ local function reclaim_stack_height(position, before_height, before_count)
 end
 
 local function resize_side_buffers()
-	local new_width = math.floor((vim.o.columns - get_main_width()) / 2)
+	local new_width = get_side_margin()
 	local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
 	if left then
 		vim.api.nvim_win_set_width(get_side_buffer("left"), new_width)
@@ -360,7 +373,7 @@ end
 
 ---@param filetype string|string[]
 local function close(filetype)
-	for _, win in ipairs(vim.api.nvim_list_wins()) do
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		local buf = vim.api.nvim_win_get_buf(win)
 		if is_filetype(vim.bo[buf].filetype, filetype) then
 			vim.api.nvim_win_close(win, false)
@@ -377,10 +390,13 @@ local function setup(options)
 	---@type ConfigOptions
 	opts = vim.tbl_extend("force", opts, options or {})
 
+	local group = vim.api.nvim_create_augroup("zen.nvim", { clear = true })
+
 	vim.api.nvim_create_autocmd("CursorMoved", {
 		-- TODO: use pattern for better perf
+		group = group,
 		callback = function(args)
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				return
 			end
 			if is_buff_integration(args.buf) then
@@ -391,7 +407,7 @@ local function setup(options)
 					for _, integration in pairs(opts[position]) do
 						---@diagnostic disable-next-line: undefined-field
 						if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
-							local new_width = math.max(get_min_width(position, filetype), math.floor((vim.o.columns - get_main_width()) / 2))
+							local new_width = math.max(get_min_width(position, filetype), get_side_margin())
 							vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
 							return
 						end
@@ -403,9 +419,12 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd({ "VimEnter", "TabNew" }, {
+		group = group,
 		callback = function()
+			local tab_state = get_tab_state()
+
 			-- disable when window is too small
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				return
 			end
 
@@ -413,16 +432,15 @@ local function setup(options)
 				return
 			end
 
-			state[vim.api.nvim_get_current_tabpage()] = {
-				left = create_window("left"),
-				right = create_window("right"),
-			}
+			tab_state.left = create_window("left")
+			tab_state.right = create_window("right")
 			vim.cmd("wincmd h")
 		end,
 		desc = "Restore the last buffer when opening Neovim",
 	})
 
 	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
 		callback = function()
 			if vim.bo.filetype == "zen-left" then
 				vim.cmd("wincmd l")
@@ -435,6 +453,7 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("QuitPre", {
+		group = group,
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
 				return
@@ -443,16 +462,7 @@ local function setup(options)
 				return
 			end
 
-			local editable_count = 0
-			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-				if not is_popup_window(win) then
-					local buf = vim.api.nvim_win_get_buf(win)
-					if not is_buff_integration(buf) then
-						editable_count = editable_count + 1
-					end
-				end
-			end
-			if editable_count ~= 1 then
+			if count_editable_windows() ~= 1 then
 				return
 			end
 
@@ -471,28 +481,30 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("VimResized", {
+		group = group,
 		callback = function()
-			if vim.tbl_count(get_editable_files()) ~= 1 then
+			if count_editable_windows() ~= 1 then
 				return
 			end
 
 			-- close when window is too small
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				close_side_buffer("left")
 				close_side_buffer("right")
 				return
 			end
 
 			-- enable when side buffers is big enough
+			local tab_state = get_tab_state()
 			local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
 			if not left and not is_integration_open("left") then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
+				tab_state.left = create_window("left")
 				vim.cmd("wincmd l")
 			end
 
 			local right = vim.api.nvim_win_is_valid(get_side_buffer("right"))
 			if not right and not is_integration_open("right") then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
+				tab_state.right = create_window("right")
 				vim.cmd("wincmd h")
 			end
 			resize_side_buffers()
@@ -502,9 +514,10 @@ local function setup(options)
 
 	vim.api.nvim_create_autocmd("WinClosed", {
 		pattern = "*",
+		group = group,
 		callback = function(args)
 			-- do not recreate when window is too small
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				return
 			end
 			local win_id = tonumber(args.match)
@@ -530,7 +543,6 @@ local function setup(options)
 			})
 
 			local buf_id = vim.fn.winbufnr(win_id)
-			local file_type = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
 			local buf_type = vim.api.nvim_get_option_value("buftype", { buf = buf_id })
 			-- do not recreate when multiple vsplits are active
 			local count = vim.tbl_count(get_vsplits())
@@ -541,17 +553,13 @@ local function setup(options)
 				return
 			end
 
-			local left_file_types = { "fugitiveblame", "fyler_finder", "undotree", "dbui", "zen-left" }
-			remove_file_type(left_file_types, file_type)
-			if not filetypes_visible(left_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
+			if not is_side_integration_visible("left", win_id) then
+				get_tab_state().left = create_window("left")
 				vim.cmd("wincmd l")
 			end
 
-			local right_file_types = { "dapui_scopes", "neotest-summary", "zen-right" }
-			remove_file_type(right_file_types, file_type)
-			if not filetypes_visible(right_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
+			if not is_side_integration_visible("right", win_id) then
+				get_tab_state().right = create_window("right")
 				vim.cmd("wincmd h")
 			end
 
@@ -564,6 +572,7 @@ local function setup(options)
 
 	vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType", "WinNew" }, {
 		pattern = "*",
+		group = group,
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
 				return
