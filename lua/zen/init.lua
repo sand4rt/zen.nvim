@@ -377,8 +377,11 @@ local function setup(options)
 	---@type ConfigOptions
 	opts = vim.tbl_extend("force", opts, options or {})
 
+	local group = vim.api.nvim_create_augroup("zen.nvim", { clear = true })
+
 	vim.api.nvim_create_autocmd("CursorMoved", {
 		-- TODO: use pattern for better perf
+		group = group,
 		callback = function(args)
 			if vim.o.columns <= get_main_width() then
 				return
@@ -403,6 +406,7 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd({ "VimEnter", "TabNew" }, {
+		group = group,
 		callback = function()
 			-- disable when window is too small
 			if vim.o.columns <= get_main_width() then
@@ -423,6 +427,7 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
 		callback = function()
 			if vim.bo.filetype == "zen-left" then
 				vim.cmd("wincmd l")
@@ -435,6 +440,7 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("QuitPre", {
+		group = group,
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
 				return
@@ -471,6 +477,7 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("VimResized", {
+		group = group,
 		callback = function()
 			if vim.tbl_count(get_editable_files()) ~= 1 then
 				return
@@ -502,6 +509,7 @@ local function setup(options)
 
 	vim.api.nvim_create_autocmd("WinClosed", {
 		pattern = "*",
+		group = group,
 		callback = function(args)
 			-- do not recreate when window is too small
 			if vim.o.columns <= get_main_width() then
@@ -564,6 +572,7 @@ local function setup(options)
 
 	vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType", "WinNew" }, {
 		pattern = "*",
+		group = group,
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
 				return
