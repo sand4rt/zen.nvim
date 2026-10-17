@@ -97,6 +97,26 @@ describe("closing the last main window", function()
 	end)
 end)
 
+describe("resizing with multiple tabpages open", function()
+	it("resizes the side buffers of the current tabpage", function()
+		-- Regression: the VimResized guard counted distinct editable buffers
+		-- across ALL tabpages, so with two tabs open it always bailed out and
+		-- the side windows kept their stale widths.
+		child.cmd("tabnew")
+		child.cmd("set columns=320")
+		child.cmd("doautocmd VimResized")
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 86, height = 49 },
+				{ type = "leaf", filetype = "", buftype = "", width = 146, height = 49 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 86, height = 49 },
+			},
+		})
+	end)
+end)
+
 describe("when the margin for side buffers is below one column", function()
 	it("does not create side buffers", function()
 		-- Regression: at columns == main_width + 1 the side windows were
@@ -128,3 +148,22 @@ describe("when the margin for side buffers is below one column", function()
 	end)
 end)
 
+describe("resizing with a same-buffer vsplit", function()
+	it("does not recreate the side buffers next to the split", function()
+		-- Regression: get_editable_files() deduplicated by buffer, so a
+		-- vsplit of the same buffer counted as a single editable file and the
+		-- VimResized handler recreated the side windows beside the split.
+		child.cmd("edit a.lua")
+		child.cmd("vsplit")
+		child.cmd("set columns=250")
+		child.cmd("doautocmd VimResized")
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "lua", buftype = "", width = 120, height = 50 },
+				{ type = "leaf", filetype = "lua", buftype = "", width = 129, height = 50 },
+			},
+		})
+	end)
+end)

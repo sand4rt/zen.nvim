@@ -176,23 +176,24 @@ local function is_buff_integration(buf)
 	return false
 end
 
----@return table
-local function get_editable_files()
-	local editable_files = {}
-	local windows = vim.api.nvim_list_wins()
-	for _, win in ipairs(windows) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		if not is_buff_integration(buf) then -- is an actual file
-			editable_files[buf] = buf
-		end
-	end
-	return editable_files
-end
-
 ---@param win_id number
 ---@return boolean
 local function is_popup_window(win_id)
 	return vim.api.nvim_win_get_config(win_id).relative ~= ""
+end
+
+---@return number
+local function count_editable_windows()
+	local count = 0
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		if not is_popup_window(win) then
+			local buf = vim.api.nvim_win_get_buf(win)
+			if not is_buff_integration(buf) then
+				count = count + 1
+			end
+		end
+	end
+	return count
 end
 
 ---@return table
@@ -461,16 +462,7 @@ local function setup(options)
 				return
 			end
 
-			local editable_count = 0
-			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-				if not is_popup_window(win) then
-					local buf = vim.api.nvim_win_get_buf(win)
-					if not is_buff_integration(buf) then
-						editable_count = editable_count + 1
-					end
-				end
-			end
-			if editable_count ~= 1 then
+			if count_editable_windows() ~= 1 then
 				return
 			end
 
@@ -491,7 +483,7 @@ local function setup(options)
 	vim.api.nvim_create_autocmd("VimResized", {
 		group = group,
 		callback = function()
-			if vim.tbl_count(get_editable_files()) ~= 1 then
+			if count_editable_windows() ~= 1 then
 				return
 			end
 
