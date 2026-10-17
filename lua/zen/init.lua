@@ -109,6 +109,13 @@ local function get_side_buffer(position)
 	return -1
 end
 
+---@return table
+local function get_tab_state()
+	local current_tabpage = vim.api.nvim_get_current_tabpage()
+	state[current_tabpage] = state[current_tabpage] or { left = nil, right = nil }
+	return state[current_tabpage]
+end
+
 local function close_side_buffer(position)
 	local window = get_side_buffer(position)
 	if window and vim.api.nvim_win_is_valid(window) then
@@ -408,6 +415,8 @@ local function setup(options)
 	vim.api.nvim_create_autocmd({ "VimEnter", "TabNew" }, {
 		group = group,
 		callback = function()
+			local tab_state = get_tab_state()
+
 			-- disable when window is too small
 			if vim.o.columns <= get_main_width() then
 				return
@@ -417,10 +426,8 @@ local function setup(options)
 				return
 			end
 
-			state[vim.api.nvim_get_current_tabpage()] = {
-				left = create_window("left"),
-				right = create_window("right"),
-			}
+			tab_state.left = create_window("left")
+			tab_state.right = create_window("right")
 			vim.cmd("wincmd h")
 		end,
 		desc = "Restore the last buffer when opening Neovim",
@@ -491,15 +498,16 @@ local function setup(options)
 			end
 
 			-- enable when side buffers is big enough
+			local tab_state = get_tab_state()
 			local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
 			if not left and not is_integration_open("left") then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
+				tab_state.left = create_window("left")
 				vim.cmd("wincmd l")
 			end
 
 			local right = vim.api.nvim_win_is_valid(get_side_buffer("right"))
 			if not right and not is_integration_open("right") then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
+				tab_state.right = create_window("right")
 				vim.cmd("wincmd h")
 			end
 			resize_side_buffers()

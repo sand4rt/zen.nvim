@@ -8,6 +8,28 @@ end)
 
 teardown(child.stop)
 
+describe("tabpage created while zen is disabled", function()
+	it("creates the side buffers on VimResized without errors", function()
+		-- Regression: the tabpage has no `state` entry because the TabNew
+		-- guard skipped it (columns below the main width), so the VimResized
+		-- handler used to crash with `attempt to index a nil value` at
+		-- `state[tab].left = create_window("left")` and leave orphan windows.
+		child.restart({ "-u", "tests/scripts/init_with_zen_small.lua" })
+		child.cmd("tab split")
+		child.cmd("set columns=240")
+		child.cmd("doautocmd VimResized")
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 49 },
+				{ type = "leaf", filetype = "", buftype = "", width = 146, height = 49 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 49 },
+			},
+		})
+	end)
+end)
+
 describe("calling setup twice", function()
 	it("does not duplicate the side buffers on startup", function()
 		-- Regression: setup() created every autocmd again without a
