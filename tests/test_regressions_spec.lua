@@ -97,3 +97,34 @@ describe("closing the last main window", function()
 	end)
 end)
 
+describe("when the margin for side buffers is below one column", function()
+	it("does not create side buffers", function()
+		-- Regression: at columns == main_width + 1 the side windows were
+		-- created with a width of 0.
+		child.restart({ "-u", "tests/scripts/init_with_zen_small.lua" })
+		child.cmd("set columns=149")
+		child.cmd("doautocmd VimResized")
+
+		Helpers.expect.layout(child, {
+			type = "leaf",
+			filetype = "",
+			buftype = "",
+			width = 149,
+			height = 50,
+		})
+	end)
+
+	it("closes existing side buffers", function()
+		child.cmd("set columns=149")
+		child.cmd("doautocmd VimResized")
+
+		Helpers.expect.layout(child, {
+			type = "leaf",
+			filetype = "",
+			buftype = "",
+			width = 149,
+			height = 50,
+		})
+	end)
+end)
+

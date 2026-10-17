@@ -44,6 +44,11 @@ local function get_main_width()
 	return width
 end
 
+---@return number
+local function get_side_margin()
+	return math.floor((vim.o.columns - get_main_width()) / 2)
+end
+
 local function create_window(position)
 	is_creating_side_window = true
 	if position == "left" then
@@ -53,7 +58,7 @@ local function create_window(position)
 	end
 
 	local win_id = vim.api.nvim_get_current_win()
-	vim.api.nvim_win_set_width(win_id, math.floor((vim.o.columns - get_main_width()) / 2))
+	vim.api.nvim_win_set_width(win_id, get_side_margin())
 	vim.api.nvim_set_option_value("winfixwidth", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("winfixbuf", true, { scope = "local", win = win_id })
 	vim.api.nvim_set_option_value("cursorline", false, { scope = "local", win = win_id })
@@ -354,7 +359,7 @@ local function reclaim_stack_height(position, before_height, before_count)
 end
 
 local function resize_side_buffers()
-	local new_width = math.floor((vim.o.columns - get_main_width()) / 2)
+	local new_width = get_side_margin()
 	local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
 	if left then
 		vim.api.nvim_win_set_width(get_side_buffer("left"), new_width)
@@ -390,7 +395,7 @@ local function setup(options)
 		-- TODO: use pattern for better perf
 		group = group,
 		callback = function(args)
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				return
 			end
 			if is_buff_integration(args.buf) then
@@ -401,7 +406,7 @@ local function setup(options)
 					for _, integration in pairs(opts[position]) do
 						---@diagnostic disable-next-line: undefined-field
 						if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
-							local new_width = math.max(get_min_width(position, filetype), math.floor((vim.o.columns - get_main_width()) / 2))
+							local new_width = math.max(get_min_width(position, filetype), get_side_margin())
 							vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
 							return
 						end
@@ -418,7 +423,7 @@ local function setup(options)
 			local tab_state = get_tab_state()
 
 			-- disable when window is too small
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				return
 			end
 
@@ -491,7 +496,7 @@ local function setup(options)
 			end
 
 			-- close when window is too small
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				close_side_buffer("left")
 				close_side_buffer("right")
 				return
@@ -520,7 +525,7 @@ local function setup(options)
 		group = group,
 		callback = function(args)
 			-- do not recreate when window is too small
-			if vim.o.columns <= get_main_width() then
+			if get_side_margin() < 1 then
 				return
 			end
 			local win_id = tonumber(args.match)
