@@ -35,6 +35,58 @@ it("opens zen side buffers on startup", function()
 	})
 end)
 
+it("does not duplicate zen side buffers when setup runs again", function()
+	child.lua([[require("zen").setup()]])
+	child.cmd("doautocmd VimEnter")
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end)
+
+it("supports a callback main width", function()
+	child.lua([[
+		width_calls = 0
+		require("zen").setup({
+			main = {
+				width = function()
+					width_calls = width_calls + 1
+					return 148
+				end,
+			},
+		})
+	]])
+	MiniTest.expect.equality(child.lua_get("width_calls"), 1)
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+
+	child.lua([[vim.api.nvim_exec_autocmds("CursorMoved", { modeline = false })]])
+	MiniTest.expect.equality(child.lua_get("width_calls"), 1)
+	MiniTest.expect.equality(child.lua_get([[#vim.api.nvim_get_autocmds({ group = "zen.nvim", event = "CursorMoved" })]]), 0)
+
+	child.cmd("Neotest summary open")
+	child.cmd("Neotest summary close")
+	MiniTest.expect.equality(child.lua_get("width_calls"), 1)
+
+	child.cmd("doautocmd VimResized")
+	MiniTest.expect.equality(child.lua_get("width_calls"), 2)
+
+	child.cmd("doautocmd FocusGained")
+	MiniTest.expect.equality(child.lua_get("width_calls"), 3)
+end)
+
 it("does not open zen side buffers when there is not enough space", function()
 	child.restart({ "-u", "tests/scripts/init_with_zen_small.lua" })
 

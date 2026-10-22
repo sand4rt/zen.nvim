@@ -8,6 +8,65 @@ end)
 teardown(child.stop)
 
 describe("left integration", function()
+	it("sizes any configured side buffer even when its width is fixed", function()
+		child.lua([[
+			require("zen").setup({ left = { { filetype = "custom-sidebar", min_width = 60 } } })
+			local buf = vim.api.nvim_create_buf(false, true)
+			vim.bo[buf].filetype = "custom-sidebar"
+			vim.api.nvim_open_win(buf, false, { split = "left", win = -1, width = 80 })
+		]])
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "custom-sidebar", buftype = "nofile", width = 60, height = 50 },
+				{ type = "leaf", filetype = "", buftype = "", width = 132, height = 50 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+			},
+		})
+		child.lua([[
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "custom-sidebar" then
+					vim.wo[win].winfixwidth = true
+					vim.api.nvim_win_set_width(win, 90)
+				end
+			end
+		]])
+		MiniTest.expect.equality(
+			child.lua_get([[(function()
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "custom-sidebar" then
+					return vim.api.nvim_win_get_width(win)
+				end
+			end
+		end)()]]),
+			60
+		)
+	end)
+
+	it("replaces only the left placeholder when opened from a file", function()
+		child.cmd("edit tests/test_integrations.lua")
+		child.cmd("Fyler kind=split_left_most")
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 50 },
+				{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+			},
+		})
+
+		child.cmd("close")
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+				{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+			},
+		})
+	end)
+
 	it("opening closes zen side buffer, closing reopens it", function()
 		child.cmd("Fyler kind=split_left_most")
 
@@ -309,6 +368,19 @@ describe("bottom integration", function()
 end)
 
 describe("right integration", function()
+	it("uses zen side width across summary focus changes and reopening", function()
+		for _ = 1, 2 do
+			child.cmd("Neotest summary open")
+			MiniTest.expect.equality(child.lua_get("vim.bo.filetype"), "")
+			child.cmd("wincmd l")
+			MiniTest.expect.equality(child.lua_get("vim.bo.filetype"), "neotest-summary")
+			child.lua([[vim.api.nvim_exec_autocmds("CursorMoved", { modeline = false })]])
+			MiniTest.expect.equality(child.lua_get("vim.api.nvim_win_get_width(0)"), 46)
+			child.cmd("wincmd h")
+			child.cmd("Neotest summary close")
+		end
+	end)
+
 	it("opening closes zen side buffer, closing reopens it", function()
 		child.cmd("Neotest summary open")
 
@@ -316,8 +388,8 @@ describe("right integration", function()
 			type = "row",
 			children = {
 				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
-				{ type = "leaf", filetype = "", buftype = "", width = 142, height = 50 },
-				{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 50, height = 50 },
+				{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 46, height = 50 },
 			},
 		})
 
@@ -340,8 +412,8 @@ describe("right integration", function()
 			type = "row",
 			children = {
 				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
-				{ type = "leaf", filetype = "", buftype = "", width = 142, height = 50 },
-				{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 50, height = 50 },
+				{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 46, height = 50 },
 			},
 		})
 
@@ -366,21 +438,21 @@ describe("right integration", function()
 				{
 					type = "col",
 					children = {
-						{ type = "leaf", filetype = "dapui_watches", buftype = "prompt", width = 40, height = 12 },
-						{ type = "leaf", filetype = "dapui_stacks", buftype = "nofile", width = 40, height = 12 },
-						{ type = "leaf", filetype = "dapui_breakpoints", buftype = "nofile", width = 40, height = 12 },
-						{ type = "leaf", filetype = "dapui_scopes", buftype = "nofile", width = 40, height = 11 },
+						{ type = "leaf", filetype = "dapui_watches", buftype = "prompt", width = 46, height = 12 },
+						{ type = "leaf", filetype = "dapui_stacks", buftype = "nofile", width = 46, height = 12 },
+						{ type = "leaf", filetype = "dapui_breakpoints", buftype = "nofile", width = 46, height = 12 },
+						{ type = "leaf", filetype = "dapui_scopes", buftype = "nofile", width = 46, height = 11 },
 					},
 				},
 				{
 					type = "col",
 					children = {
-						{ type = "leaf", filetype = "", buftype = "", width = 199, height = 39 },
+						{ type = "leaf", filetype = "", buftype = "", width = 193, height = 39 },
 						{
 							type = "row",
 							children = {
 								{ type = "leaf", filetype = "dapui_console", buftype = "nofile", width = 99, height = 10 },
-								{ type = "leaf", filetype = "dap-repl", buftype = "prompt", width = 99, height = 10 },
+								{ type = "leaf", filetype = "dap-repl", buftype = "prompt", width = 93, height = 10 },
 							},
 						},
 					},

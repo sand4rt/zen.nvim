@@ -7,6 +7,58 @@ end)
 
 teardown(child.stop)
 
+it("sizes the background Neotest summary on opening, resizing, and reopening", function()
+	child.cmd("edit tests/test_resizing.lua")
+	child.cmd("Neotest summary open")
+	child.cmd("set columns=400")
+	child.cmd("doautocmd VimResized")
+
+	local expected = {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 126, height = 50 },
+			{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "neotest-summary", buftype = "nofile", width = 126, height = 50 },
+		},
+	}
+	Helpers.expect.layout(child, expected)
+
+	child.cmd("Neotest summary close")
+	child.cmd("Neotest summary open")
+	Helpers.expect.layout(child, expected)
+	MiniTest.expect.equality(child.lua_get("vim.bo.filetype"), "lua")
+end)
+
+it("sizes Fyler to the side width after resizing and reopening", function()
+	child.cmd("edit tests/test_resizing.lua")
+	child.cmd("Fyler kind=split_left_most")
+	child.cmd("set columns=400")
+	child.cmd("doautocmd VimResized")
+
+	local expected = {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 126, height = 50 },
+			{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 126, height = 50 },
+		},
+	}
+	Helpers.expect.layout(child, expected)
+
+	child.cmd("close")
+	child.cmd("Fyler kind=split_left_most")
+	Helpers.expect.layout(child, expected)
+	MiniTest.expect.equality(child.lua_get("vim.bo.filetype"), "fyler_finder")
+
+	child.cmd("wincmd l")
+	child.cmd("set columns=440")
+	child.cmd("doautocmd VimResized")
+	expected.children[1].width = 146
+	expected.children[3].width = 146
+	Helpers.expect.layout(child, expected)
+	MiniTest.expect.equality(child.lua_get("vim.bo.filetype"), "lua")
+end)
+
 it("resizing below minimum width closes the side buffers", function()
 	child.cmd("set columns-=100")
 	child.cmd("doautocmd VimResized")

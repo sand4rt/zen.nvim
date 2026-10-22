@@ -28,20 +28,26 @@ local opts = {
 	bottom = {},
 	left = { { filetype = "*", min_width = 46 } },
 }
+local main_width = default_width
 local state = {
 	[vim.api.nvim_get_current_tabpage()] = { left = nil, right = nil },
 }
 local is_creating_side_window = false
 
 local function get_main_width()
+	return main_width
+end
+
+local function refresh_main_width()
 	local width = opts.main and opts.main.width
 	if type(width) == "function" then
 		width = width()
 	end
 	if type(width) ~= "number" then
-		return default_width
+		main_width = default_width
+		return
 	end
-	return width
+	main_width = width
 end
 
 local function create_window(position)
@@ -186,7 +192,7 @@ end
 ---@return table
 local function get_vsplits()
 	local vsplits = {}
-	local windows = vim.api.nvim_list_wins()
+	local windows = vim.api.nvim_tabpage_list_wins(0)
 	for _, win in ipairs(windows) do
 		local buf = vim.api.nvim_win_get_buf(win)
 		local total_width = vim.o.columns
@@ -219,7 +225,7 @@ end
 
 ---@param filetype string|string[]
 local function get_window_by_filetype(filetype)
-	for _, win_id in ipairs(vim.api.nvim_list_wins()) do
+	for _, win_id in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		local buf_id = vim.api.nvim_win_get_buf(win_id)
 		local buf_filetype = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
 		if is_filetype(buf_filetype, filetype) then
@@ -368,41 +374,43 @@ local function close(filetype)
 	end
 end
 
+---@param buf number
+local function resize_current_integration(buf)
+	local filetype = vim.api.nvim_get_option_value("filetype", { buf = buf })
+	if
+		vim.o.columns <= get_main_width()
+		or vim.api.nvim_get_current_buf() ~= buf
+		or is_popup_window(vim.api.nvim_get_current_win())
+	then
+		return
+	end
+
+	for _, position in ipairs({ "right", "left" }) do
+		for _, integration in ipairs(opts[position]) do
+			if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
+				local width = math.max(get_min_width(position, filetype), math.floor((vim.o.columns - get_main_width()) / 2))
+				if vim.api.nvim_win_get_width(0) ~= width then
+					vim.api.nvim_win_set_width(0, width)
+				end
+				return
+			end
+		end
+	end
+end
+
 ---@param options? Config
 local function setup(options)
 	-- Default splitting will cause your main splits to jump when opening an integration.
 	-- To prevent this, set `splitkeep` to either `screen` or `topline`.
 	vim.opt.splitkeep = "screen"
+	local group = vim.api.nvim_create_augroup("zen.nvim", { clear = true })
 
 	---@type ConfigOptions
 	opts = vim.tbl_extend("force", opts, options or {})
-
-	vim.api.nvim_create_autocmd("CursorMoved", {
-		-- TODO: use pattern for better perf
-		callback = function(args)
-			if vim.o.columns <= get_main_width() then
-				return
-			end
-			if is_buff_integration(args.buf) then
-				local buf_info = vim.fn.getbufinfo(args.buf)
-
-				local filetype = vim.api.nvim_get_option_value("filetype", { buf = args.buf })
-				for _, position in ipairs({ "right", "left" }) do
-					for _, integration in pairs(opts[position]) do
-						---@diagnostic disable-next-line: undefined-field
-						if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
-							local new_width = math.max(get_min_width(position, filetype), math.floor((vim.o.columns - get_main_width()) / 2))
-							vim.api.nvim_win_set_width(buf_info[1].windows[1], new_width)
-							return
-						end
-					end
-				end
-			end
-		end,
-		desc = "HACK: adjust the integration when opening",
-	})
+	refresh_main_width()
 
 	vim.api.nvim_create_autocmd({ "VimEnter", "TabNew" }, {
+		group = group,
 		callback = function()
 			-- disable when window is too small
 			if vim.o.columns <= get_main_width() then
@@ -413,9 +421,11 @@ local function setup(options)
 				return
 			end
 
+			local left = get_window_by_filetype("zen-left")
+			local right = get_window_by_filetype("zen-right")
 			state[vim.api.nvim_get_current_tabpage()] = {
-				left = create_window("left"),
-				right = create_window("right"),
+				left = left or create_window("left"),
+				right = right or create_window("right"),
 			}
 			vim.cmd("wincmd h")
 		end,
@@ -423,11 +433,11 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
 		callback = function()
 			if vim.bo.filetype == "zen-left" then
 				vim.cmd("wincmd l")
-			end
-			if vim.bo.filetype == "zen-right" then
+			elseif vim.bo.filetype == "zen-right" then
 				vim.cmd("wincmd h")
 			end
 		end,
@@ -435,6 +445,7 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("QuitPre", {
+		group = group,
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
 				return
@@ -471,7 +482,9 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd("VimResized", {
+		group = group,
 		callback = function()
+			refresh_main_width()
 			if vim.tbl_count(get_editable_files()) ~= 1 then
 				return
 			end
@@ -500,7 +513,28 @@ local function setup(options)
 		desc = "Resizes side windows after terminal has been resized, closes them if not enough space left.",
 	})
 
+	vim.api.nvim_create_autocmd("FocusGained", {
+		group = group,
+		callback = refresh_main_width,
+		desc = "Refresh the main width after Neovim regains focus.",
+	})
+
+	vim.api.nvim_create_autocmd("WinResized", {
+		group = group,
+		callback = function()
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if not is_popup_window(win) then
+					vim.api.nvim_win_call(win, function()
+						resize_current_integration(vim.api.nvim_get_current_buf())
+					end)
+				end
+			end
+		end,
+		desc = "Keep side integrations at the cached side width after layout changes.",
+	})
+
 	vim.api.nvim_create_autocmd("WinClosed", {
+		group = group,
 		pattern = "*",
 		callback = function(args)
 			-- do not recreate when window is too small
@@ -522,6 +556,7 @@ local function setup(options)
 			local top_height, top_count = stack_metrics("top")
 			local bottom_height, bottom_count = stack_metrics("bottom")
 			vim.api.nvim_create_autocmd("WinResized", {
+				group = group,
 				once = true,
 				callback = function()
 					reclaim_stack_height("top", top_height, top_count)
@@ -563,6 +598,7 @@ local function setup(options)
 	})
 
 	vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType", "WinNew" }, {
+		group = group,
 		pattern = "*",
 		callback = function(args)
 			if is_popup_window(vim.api.nvim_get_current_win()) then
@@ -571,9 +607,25 @@ local function setup(options)
 			if args.event == "WinNew" and is_creating_side_window then
 				return
 			end
+			if args.event == "WinNew" then
+				-- WinNew still exposes the source buffer, even when a plugin is
+				-- about to install its own. Classify after the split has settled.
+				local tab = vim.api.nvim_get_current_tabpage()
+				vim.api.nvim_create_autocmd("WinResized", {
+					group = group,
+					once = true,
+					callback = function()
+						if vim.api.nvim_get_current_tabpage() == tab and vim.tbl_count(get_vsplits()) >= 2 then
+							close_side_buffer("left")
+							close_side_buffer("right")
+						end
+					end,
+				})
+				return
+			end
 			local filetype = vim.bo[args.buf].filetype
 			local is_integration = is_buff_integration(args.buf)
-			if args.event == "BufWinEnter" or args.event == "WinNew" then
+			if args.event == "BufWinEnter" then
 				if filetype ~= "" and not is_integration and vim.tbl_count(get_vsplits()) >= 2 then
 					close_side_buffer("left")
 					close_side_buffer("right")
@@ -621,7 +673,7 @@ local function setup(options)
 					end
 				end
 			end
-
+			resize_current_integration(args.buf)
 			reposition_stack("top")
 			reposition_stack("bottom")
 			resize_side_buffers()

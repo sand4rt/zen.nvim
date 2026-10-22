@@ -28,7 +28,18 @@ return {
   opts = {
     main = {
       width = 148, -- or vim.wo.colorcolumn
+
+      -- Or compute a responsive width with any local command. Hyprland example:
+      -- width = function()
+      --   local command = "hyprctl monitors -j" -- use a platform-specific command on macOS or Windows
+      --   local monitors = vim.json.decode(vim.fn.system(command))
+      --   for _, monitor in ipairs(monitors) do
+      --     if monitor.width == 3840 then return 198 end
+      --     if monitor.width == 2880 then return 148 end
+      --   end
+      -- end,
     },
+
     -- TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
     top = {
       { filetype = "gitcommit", replace = false },
@@ -66,44 +77,52 @@ return {
 <summary>Using <a href="https://github.com/NotAShelf/nvf">Nix NVF</a></summary>
 
 ```nix
-programs.nvf.settings.vim.lazy.plugins = {
-  "zen.nvim" = {
-    package = pkgs.vimPlugins.zen-nvim;
-    event = [ "BufEnter" ];
-    setupModule = "zen";
-    setupOpts = {
-      main.width = 148;
-      # TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
-      top = [
-        { filetype = "gitcommit"; replace = false; }
-        { filetype = "fugitive"; }
-        { filetype = "man"; }
-        { filetype = "help"; }
-      ];
-      right = [
-        { filetype = "*"; min_width = 46; }
-        { filetype = "copilot-chat"; min_width = 60; }
-        { filetype = "neotest-summary"; }
-        { filetype = [ "dapui_watches" "dapui_scopes" "dapui_stacks" "dapui_breakpoints" ]; }
-      ];
-      bottom = [
-        { filetype = "dap-repl"; }
-        { filetype = "qf"; }
-        { filetype = "trouble"; }
-        { filetype = "noice"; } # noice opens large notifications in a buffer
-      ];
-      left = [
-        { filetype = "*"; min_width = 46; }
-        { filetype = "fugitiveblame"; }
-        { filetype = "fyler_finder"; }
-        { filetype = "neotree"; }
-        { filetype = "dbui"; }
-        { filetype = [ "undotree" "diff" ]; }
-      ];
-    };
-  };
+vim.ui.zen-nvim.enable = true;
+vim.ui.zen-nvim.setupOpts = {
+  main.width = 148;
+
+  # Or compute a responsive width with any local command. Hyprland example:
+  # main.width = lib.mkLuaInline ''
+  #   function()
+  #     local command = "hyprctl monitors -j" -- use a platform-specific command on macOS or Windows
+  #     local monitors = vim.json.decode(vim.fn.system(command))
+  #     for _, monitor in ipairs(monitors) do
+  #       if monitor.width == 3840 then return 198 end
+  #       if monitor.width == 2880 then return 148 end
+  #     end
+  #   end
+  # '';
+
+  # TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
+  top = [
+    { filetype = "gitcommit"; replace = false; }
+    { filetype = "fugitive"; }
+    { filetype = "man"; }
+    { filetype = "help"; }
+  ];
+  right = [
+    { filetype = "*"; min_width = 46; }
+    { filetype = "copilot-chat"; min_width = 60; }
+    { filetype = "neotest-summary"; }
+    { filetype = [ "dapui_watches" "dapui_scopes" "dapui_stacks" "dapui_breakpoints" ]; }
+  ];
+  bottom = [
+    { filetype = "dap-repl"; }
+    { filetype = "qf"; }
+    { filetype = "trouble"; }
+    { filetype = "noice"; }
+  ];
+  left = [
+    { filetype = "*"; min_width = 46; }
+    { filetype = "fugitiveblame"; }
+    { filetype = "neotree"; }
+    { filetype = [ "undotree" "diff" ]; }
+  ];
 };
 ```
+
+Nix users not using NVF can install the plugin with
+[`pkgs.vimPlugins.zen-nvim`](https://search.nixos.org/packages?channel=unstable&show=vimPlugins.zen-nvim&from=0&size=50&sort=relevance&type=packages&query=zen-nvim).
 
 </details>
 
