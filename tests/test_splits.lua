@@ -160,6 +160,19 @@ describe("hsplit", function()
 		})
 	end)
 
+	it("resizing above minimum width keeps the focused split", function()
+		child.cmd("edit test.lua")
+		child.cmd("split test2.lua")
+		child.cmd("wincmd j")
+
+		child.cmd("set columns-=100")
+		child.cmd("doautocmd VimResized")
+		child.cmd("set columns+=100")
+		child.cmd("doautocmd VimResized")
+
+		MiniTest.expect.equality(child.lua_get([[vim.fn.expand("%:t")]]), "test.lua")
+	end)
+
 	it("a vsplit inside a split closes the side buffers", function()
 		child.cmd("edit test.lua")
 		child.cmd("split test2.lua")
@@ -178,5 +191,71 @@ describe("hsplit", function()
 				{ type = "leaf", filetype = "lua", buftype = "", width = 240, height = 24 },
 			},
 		})
+	end)
+
+	it("closing a split inside a vsplit does not reopen the side buffers", function()
+		child.cmd("edit test.lua")
+		child.cmd("vsplit test2.lua")
+		child.cmd("split test3.lua")
+		child.cmd("q")
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "lua", buftype = "", width = 120, height = 50 },
+				{ type = "leaf", filetype = "lua", buftype = "", width = 119, height = 50 },
+			},
+		})
+	end)
+
+	describe("with a side integration", function()
+		it("closing the left of a nested vsplit restores the right side buffer", function()
+			child.cmd("edit test.lua")
+			child.cmd("Fyler kind=split_left_most")
+			child.cmd("wincmd l")
+			child.cmd("split test2.lua")
+			child.cmd("vsplit test3.lua")
+			child.cmd("q")
+
+			Helpers.expect.layout(child, {
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 50 },
+					{
+						type = "col",
+						children = {
+							{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 25 },
+							{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 24 },
+						},
+					},
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+				},
+			})
+		end)
+
+		it("closing the right of a nested vsplit restores the right side buffer", function()
+			child.cmd("edit test.lua")
+			child.cmd("Fyler kind=split_left_most")
+			child.cmd("wincmd l")
+			child.cmd("split test2.lua")
+			child.cmd("vsplit test3.lua")
+			child.cmd("wincmd l")
+			child.cmd("q")
+
+			Helpers.expect.layout(child, {
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 50 },
+					{
+						type = "col",
+						children = {
+							{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 25 },
+							{ type = "leaf", filetype = "lua", buftype = "", width = 146, height = 24 },
+						},
+					},
+					{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+				},
+			})
+		end)
 	end)
 end)

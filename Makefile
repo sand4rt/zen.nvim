@@ -13,7 +13,7 @@ format-check:
 	stylua --check lua tests
 
 test: deps
-	nvim --headless -u tests/scripts/minimal_init.lua -c "lua $(if $(FILE),MiniTest.run_file('$(FILE)'),MiniTest.run())"
+	nvim --headless -u tests/scripts/minimal_init.lua -c "lua MiniTest.run()"
 
 deps: \
 	$(START_DIR)/mini.nvim \

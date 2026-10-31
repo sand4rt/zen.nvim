@@ -33,3 +33,21 @@ it("closes tab on last main quit", function()
 		},
 	})
 end)
+
+it("opens zen side buffers on a tab created while below minimum width", function()
+	child.cmd("set columns-=100")
+	child.cmd("doautocmd VimResized")
+	child.cmd("tabnew")
+
+	child.cmd("set columns+=100")
+	child.cmd("doautocmd VimResized")
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 49 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 49 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 49 },
+		},
+	})
+end)
