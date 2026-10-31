@@ -3,7 +3,7 @@
 --- @class Integration
 --- @field filetype Filetype
 --- @field min_width? number
---- @field replace? boolean 
+--- @field replace? boolean
 
 --- @class Config
 --- @field main? { width: number | fun(): number; }
@@ -191,19 +191,18 @@ end
 
 ---@return table
 local function get_vsplits()
-	local vsplits = {}
-	local windows = vim.api.nvim_tabpage_list_wins(0)
-	for _, win in ipairs(windows) do
+	local columns = {}
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		local buf = vim.api.nvim_win_get_buf(win)
-		local total_width = vim.o.columns
-		local window_width = vim.api.nvim_win_get_width(win)
-		local is_popup = is_popup_window(win)
-		local is_integration = is_buff_integration(buf)
-		if not is_popup and not is_integration and window_width < total_width then
-			vsplits[win] = buf
+		if
+			not is_popup_window(win)
+			and not is_buff_integration(buf)
+			and vim.api.nvim_win_get_width(win) < vim.o.columns
+		then
+			columns[vim.api.nvim_win_get_position(win)[2]] = buf
 		end
 	end
-	return vsplits
+	return columns
 end
 
 ---@param position "top" | "right" | "bottom" | "left"
@@ -485,7 +484,7 @@ local function setup(options)
 		group = group,
 		callback = function()
 			refresh_main_width()
-			if vim.tbl_count(get_editable_files()) ~= 1 then
+			if vim.tbl_count(get_vsplits()) >= 2 then
 				return
 			end
 

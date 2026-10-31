@@ -1,13 +1,19 @@
 DEPS_DIR := $(CURDIR)/deps
 START_DIR := $(DEPS_DIR)/pack/testing/start
 
-.PHONY: test deps typecheck
+.PHONY: test deps typecheck format format-check
 
 typecheck:
 	lua-language-server --check lua/zen/ --checklevel=Warning --configpath=$(CURDIR)/.luarc.json
 
+format:
+	stylua lua tests
+
+format-check:
+	stylua --check lua tests
+
 test: deps
-	nvim --headless -u tests/scripts/minimal_init.lua -c "lua MiniTest.run()"
+	nvim --headless -u tests/scripts/minimal_init.lua -c "lua $(if $(FILE),MiniTest.run_file('$(FILE)'),MiniTest.run())"
 
 deps: \
 	$(START_DIR)/mini.nvim \
