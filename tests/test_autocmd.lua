@@ -74,7 +74,10 @@ it("supports a callback main width", function()
 
 	child.lua([[vim.api.nvim_exec_autocmds("CursorMoved", { modeline = false })]])
 	MiniTest.expect.equality(child.lua_get("width_calls"), 1)
-	MiniTest.expect.equality(child.lua_get([[#vim.api.nvim_get_autocmds({ group = "zen.nvim", event = "CursorMoved" })]]), 0)
+	MiniTest.expect.equality(
+		child.lua_get([[#vim.api.nvim_get_autocmds({ group = "zen.nvim", event = "CursorMoved" })]]),
+		0
+	)
 
 	child.cmd("Neotest summary open")
 	child.cmd("Neotest summary close")

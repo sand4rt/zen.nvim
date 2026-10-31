@@ -3,7 +3,7 @@
 --- @class Integration
 --- @field filetype Filetype
 --- @field min_width? number
---- @field replace? boolean 
+--- @field replace? boolean
 
 --- @class Config
 --- @field main? { width: number | fun(): number; }
@@ -115,6 +115,12 @@ local function get_side_buffer(position)
 	return -1
 end
 
+local function current_tab_state()
+	local tab = vim.api.nvim_get_current_tabpage()
+	state[tab] = state[tab] or {}
+	return state[tab]
+end
+
 local function close_side_buffer(position)
 	local window = get_side_buffer(position)
 	if window and vim.api.nvim_win_is_valid(window) then
@@ -189,18 +195,33 @@ local function is_popup_window(win_id)
 	return vim.api.nvim_win_get_config(win_id).relative ~= ""
 end
 
+---@param closing_win? number window about to close, left out of the count
 ---@return table
-local function get_vsplits()
+local function get_vsplits(closing_win)
+	local wins = {}
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		if
+			win ~= closing_win
+			and not is_popup_window(win)
+			and not is_buff_integration(vim.api.nvim_win_get_buf(win))
+			and vim.api.nvim_win_get_width(win) < vim.o.columns
+		then
+			table.insert(wins, win)
+		end
+	end
+	-- windows that share screen rows sit side by side; stacked windows never do
 	local vsplits = {}
-	local windows = vim.api.nvim_tabpage_list_wins(0)
-	for _, win in ipairs(windows) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		local total_width = vim.o.columns
-		local window_width = vim.api.nvim_win_get_width(win)
-		local is_popup = is_popup_window(win)
-		local is_integration = is_buff_integration(buf)
-		if not is_popup and not is_integration and window_width < total_width then
-			vsplits[win] = buf
+	for _, win in ipairs(wins) do
+		local top = vim.api.nvim_win_get_position(win)[1]
+		for _, other in ipairs(wins) do
+			local other_top = vim.api.nvim_win_get_position(other)[1]
+			if
+				win ~= other
+				and top < other_top + vim.api.nvim_win_get_height(other)
+				and other_top < top + vim.api.nvim_win_get_height(win)
+			then
+				vsplits[win] = vim.api.nvim_win_get_buf(win)
+			end
 		end
 	end
 	return vsplits
@@ -485,7 +506,7 @@ local function setup(options)
 		group = group,
 		callback = function()
 			refresh_main_width()
-			if vim.tbl_count(get_editable_files()) ~= 1 then
+			if vim.tbl_count(get_vsplits()) >= 2 then
 				return
 			end
 
@@ -497,17 +518,17 @@ local function setup(options)
 			end
 
 			-- enable when side buffers is big enough
+			local win = vim.api.nvim_get_current_win()
 			local left = vim.api.nvim_win_is_valid(get_side_buffer("left"))
 			if not left and not is_integration_open("left") then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
-				vim.cmd("wincmd l")
+				current_tab_state().left = create_window("left")
 			end
 
 			local right = vim.api.nvim_win_is_valid(get_side_buffer("right"))
 			if not right and not is_integration_open("right") then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
-				vim.cmd("wincmd h")
+				current_tab_state().right = create_window("right")
 			end
+			vim.api.nvim_set_current_win(win)
 			resize_side_buffers()
 		end,
 		desc = "Resizes side windows after terminal has been resized, closes them if not enough space left.",
@@ -566,27 +587,22 @@ local function setup(options)
 
 			local buf_id = vim.fn.winbufnr(win_id)
 			local file_type = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
-			local buf_type = vim.api.nvim_get_option_value("buftype", { buf = buf_id })
 			-- do not recreate when multiple vsplits are active
-			local count = vim.tbl_count(get_vsplits())
-			if buf_type == "" then
-				count = count - 1
-			end
-			if count >= 2 then
+			if vim.tbl_count(get_vsplits(win_id)) >= 2 then
 				return
 			end
 
 			local left_file_types = { "fugitiveblame", "fyler_finder", "undotree", "dbui", "zen-left" }
 			remove_file_type(left_file_types, file_type)
 			if not filetypes_visible(left_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].left = create_window("left")
+				current_tab_state().left = create_window("left")
 				vim.cmd("wincmd l")
 			end
 
 			local right_file_types = { "dapui_scopes", "neotest-summary", "zen-right" }
 			remove_file_type(right_file_types, file_type)
 			if not filetypes_visible(right_file_types) then
-				state[vim.api.nvim_get_current_tabpage()].right = create_window("right")
+				current_tab_state().right = create_window("right")
 				vim.cmd("wincmd h")
 			end
 
