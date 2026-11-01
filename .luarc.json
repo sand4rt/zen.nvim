@@ -2,14 +2,14 @@
   "diagnostics": {
     "globals": [
       "vim",
-      "dofile",
-      "MiniTest"
+      "dofile"
     ]
   },
   "workspace": {
     "library": [
       "$VIMRUNTIME",
-      "deps/pack/testing/start/mini.nvim"
+      "deps/pack/testing/start/mini.nvim",
+      "${3rd}/busted/library"
     ]
   }
 }
