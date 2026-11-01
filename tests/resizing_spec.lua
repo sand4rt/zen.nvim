@@ -8,7 +8,7 @@ end)
 teardown(child.stop)
 
 it("sizes the background Neotest summary on opening, resizing, and reopening", function()
-	child.cmd("edit tests/test_resizing.lua")
+	child.cmd("edit tests/resizing_spec.lua")
 	child.cmd("Neotest summary open")
 	child.cmd("set columns=400")
 	child.cmd("doautocmd VimResized")
@@ -30,7 +30,7 @@ it("sizes the background Neotest summary on opening, resizing, and reopening", f
 end)
 
 it("sizes Fyler to the side width after resizing and reopening", function()
-	child.cmd("edit tests/test_resizing.lua")
+	child.cmd("edit tests/resizing_spec.lua")
 	child.cmd("Fyler kind=split_left_most")
 	child.cmd("set columns=400")
 	child.cmd("doautocmd VimResized")

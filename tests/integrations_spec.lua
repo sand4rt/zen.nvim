@@ -44,7 +44,7 @@ describe("left integration", function()
 	end)
 
 	it("replaces only the left placeholder when opened from a file", function()
-		child.cmd("edit tests/test_integrations.lua")
+		child.cmd("edit tests/integrations_spec.lua")
 		child.cmd("Fyler kind=split_left_most")
 
 		Helpers.expect.layout(child, {
