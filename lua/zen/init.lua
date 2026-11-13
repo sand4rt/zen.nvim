@@ -542,7 +542,8 @@ local function setup(options)
 				local buftypes = {}
 				for _, position in ipairs({ "left", "right" }) do
 					local win = get_side_buffer(position)
-					if vim.api.nvim_win_is_valid(win) then
+					-- already help while an earlier aborted quit waits to reset it
+					if vim.api.nvim_win_is_valid(win) and vim.bo[vim.api.nvim_win_get_buf(win)].buftype ~= "help" then
 						local buf = vim.api.nvim_win_get_buf(win)
 						buftypes[buf] = vim.bo[buf].buftype
 						vim.bo[buf].buftype = "help"

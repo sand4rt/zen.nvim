@@ -40,6 +40,21 @@ describe("quit", function()
 		})
 	end)
 
+	it("restores zen side buffers after repeated aborted quits", function()
+		child.api.nvim_buf_set_lines(0, 0, -1, false, { "unsaved" })
+
+		child.lua([[pcall(vim.cmd, "q"); pcall(vim.cmd, "q")]])
+
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+				{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+			},
+		})
+	end)
+
 	for _, config in ipairs({
 		{ name = "", init = "tests/scripts/init_with_zen.lua", height = 50 },
 		-- noice sets `cmdheight` to 0, which gives the windows an extra row
@@ -59,6 +74,9 @@ describe("quit", function()
 					{ vim.v.progpath, "--clean", "-n", "--listen", address, "-u", config.init },
 					{ pty = true, width = 240, height = 52 }
 				)
+				MiniTest.finally(function()
+					vim.fn.jobstop(id)
+				end)
 				local ok, channel = false, nil
 				vim.wait(5000, function()
 					ok, channel = pcall(vim.fn.sockconnect, "pipe", address, { rpc = true })
@@ -104,7 +122,6 @@ describe("quit", function()
 				MiniTest.expect.equality(vim.fn.filereadable(file) == 1, case.saved)
 				if not case.exits then
 					expect_layout("nofile")
-					tui.stop()
 				end
 			end)
 		end
