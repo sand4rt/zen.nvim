@@ -31,7 +31,9 @@ deps: \
 	$(START_DIR)/vim-dadbod-ui \
 	$(START_DIR)/nvim-dap \
 	$(START_DIR)/nvim-dap-ui \
-	$(START_DIR)/CopilotChat.nvim
+	$(START_DIR)/CopilotChat.nvim \
+	$(START_DIR)/noice.nvim \
+	$(START_DIR)/nui.nvim
 
 $(START_DIR)/mini.nvim:
 	git clone --depth 1 https://github.com/echasnovski/mini.nvim $@
@@ -71,3 +73,9 @@ $(START_DIR)/nvim-dap-ui:
 
 $(START_DIR)/CopilotChat.nvim:
 	git clone --depth 1 https://github.com/CopilotC-Nvim/CopilotChat.nvim $@
+
+$(START_DIR)/noice.nvim:
+	git clone --depth 1 https://github.com/folke/noice.nvim $@
+
+$(START_DIR)/nui.nvim:
+	git clone --depth 1 https://github.com/MunifTanjim/nui.nvim $@
