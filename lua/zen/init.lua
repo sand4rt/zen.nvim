@@ -514,9 +514,6 @@ local function setup(options)
 				return
 			end
 
-			close_side_buffer("left")
-			close_side_buffer("right")
-
 			for _, position in ipairs({ "top", "right", "bottom", "left" }) do
 				for _, integration in pairs(opts[position]) do
 					if type(integration) == "table" then
@@ -524,6 +521,65 @@ local function setup(options)
 					end
 				end
 			end
+
+			-- `QuitPre` fires before Neovim checks for unsaved changes, so the quit can
+			-- still be aborted (E37 or a cancelled `confirm`). Scheduled callbacks also
+			-- run while that dialog waits, so wait for its answer before cleaning up.
+			local function after_quit(callback)
+				local function run()
+					if vim.api.nvim_get_mode().mode:sub(1, 1) == "r" then
+						vim.defer_fn(run, 10)
+						return
+					end
+					callback()
+				end
+				vim.schedule(run)
+			end
+
+			if vim.fn.tabpagenr("$") == 1 then
+				-- `only_one_window()` ignores help windows: marked as help, the side
+				-- buffers stay visible while `:q` treats the main window as the last one
+				local buftypes = {}
+				for _, position in ipairs({ "left", "right" }) do
+					local win = get_side_buffer(position)
+					-- already help while an earlier aborted quit waits to reset it
+					if vim.api.nvim_win_is_valid(win) and vim.bo[vim.api.nvim_win_get_buf(win)].buftype ~= "help" then
+						local buf = vim.api.nvim_win_get_buf(win)
+						buftypes[buf] = vim.bo[buf].buftype
+						vim.bo[buf].buftype = "help"
+					end
+				end
+				after_quit(function()
+					for buf, buftype in pairs(buftypes) do
+						if vim.api.nvim_buf_is_valid(buf) then
+							vim.bo[buf].buftype = buftype
+						end
+					end
+				end)
+				return
+			end
+
+			-- with other tabs `:q` only closes this one, so the side buffers have to
+			-- go; bring them back if the quit is aborted after all
+			close_side_buffer("left")
+			close_side_buffer("right")
+			local main_win = vim.api.nvim_get_current_win()
+			after_quit(function()
+				if vim.v.exiting ~= vim.NIL or not vim.api.nvim_win_is_valid(main_win) then
+					return
+				end
+				if vim.o.columns <= get_main_width() or vim.tbl_count(get_vsplits()) >= 2 then
+					return
+				end
+				if not vim.api.nvim_win_is_valid(get_side_buffer("left")) then
+					current_tab_state().left = create_window("left")
+				end
+				if not vim.api.nvim_win_is_valid(get_side_buffer("right")) then
+					current_tab_state().right = create_window("right")
+				end
+				vim.api.nvim_set_current_win(main_win)
+				resize_side_buffers()
+			end)
 		end,
 		desc = "Close left and right buffers on quit",
 	})
