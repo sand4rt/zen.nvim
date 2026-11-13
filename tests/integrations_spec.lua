@@ -128,6 +128,41 @@ describe("left integration", function()
 			},
 		})
 	end)
+
+	it("keeps the layout when the open file is deleted from fyler", function()
+		local dir = child.lua_get("vim.fn.tempname()")
+		local file = dir .. "/a.txt"
+		MiniTest.finally(function()
+			child.lua("vim.fn.delete(..., 'rf')", { dir })
+		end)
+		local function wait(cond)
+			MiniTest.expect.equality(child.lua_get("vim.wait(5000, function() return " .. cond .. " end)"), true)
+		end
+
+		child.lua("vim.fn.mkdir(..., 'p')", { dir })
+		child.lua("vim.fn.writefile({ 'x' }, ...)", { file })
+		child.cmd("edit " .. file)
+		child.cmd("Fyler kind=split_left_most root_path=" .. dir)
+
+		wait("vim.bo.filetype == 'fyler_finder' and vim.fn.search('a.txt') > 0")
+		child.type_keys("dd", ":write<CR>")
+		wait("vim.api.nvim_win_get_config(0).relative ~= ''")
+		child.type_keys("y")
+		if child.api.nvim_get_mode().blocking then
+			child.type_keys("<CR>") -- fyler's message triggers a hit-enter prompt
+		end
+		wait(("vim.fn.bufnr(%q) == -1"):format(file))
+
+		MiniTest.expect.equality(child.lua_get("vim.v.errmsg"), "")
+		Helpers.expect.layout(child, {
+			type = "row",
+			children = {
+				{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 50 },
+				{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+				{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+			},
+		})
+	end)
 end)
 
 describe("top integration", function()

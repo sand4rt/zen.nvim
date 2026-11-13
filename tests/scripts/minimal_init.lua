@@ -1,5 +1,5 @@
 vim.cmd([[let &rtp.=','.getcwd()]])
-vim.opt.packpath:prepend("deps")
+vim.opt.packpath:prepend(vim.fn.fnamemodify("deps", ":p"))
 
 require("mini.test").setup({
 	collect = {
