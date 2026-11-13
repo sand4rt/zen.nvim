@@ -15,6 +15,8 @@
 - Removes the need for a visual guide showing the maximum line width
   _(`ColorColumn`)_.
 - Reduces neck strain and improves focus.
+- Integrations stay pinned to the side they are configured for, even when
+  windows are moved around with `:wincmd`.
 
 ## Usage
 
