@@ -20,4 +20,4 @@ jobs:
 
       - run: nix profile install nixpkgs#devenv nixpkgs#neovim
 
-      - run: devenv shell -- make test typecheck format-check
+      - run: devenv test

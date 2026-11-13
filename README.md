@@ -115,7 +115,9 @@ vim.ui.zen-nvim.setupOpts = {
   left = [
     { filetype = "*"; min_width = 46; }
     { filetype = "fugitiveblame"; }
+    { filetype = "fyler_finder"; }
     { filetype = "neotree"; }
+    { filetype = "dbui"; }
     { filetype = [ "undotree" "diff" ]; }
   ];
 };

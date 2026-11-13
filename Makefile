@@ -1,10 +1,13 @@
 DEPS_DIR := $(CURDIR)/deps
 START_DIR := $(DEPS_DIR)/pack/testing/start
 
-.PHONY: test deps typecheck format format-check
+.PHONY: test deps typecheck format format-check lint
 
 typecheck:
 	lua-language-server --check lua/zen/ --checklevel=Warning --configpath=$(CURDIR)/.luarc.json
+
+lint:
+	luacheck lua tests
 
 format:
 	stylua lua tests

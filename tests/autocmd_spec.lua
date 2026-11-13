@@ -102,6 +102,53 @@ it("does not open zen side buffers when there is not enough space", function()
 	})
 end)
 
+it("keeps the main window when its buffer is force deleted from a floating window", function()
+	child.cmd("edit test.lua")
+	child.lua([[
+		local buf = vim.api.nvim_get_current_buf()
+		vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), true, {
+			relative = "editor",
+			row = 1,
+			col = 1,
+			width = 10,
+			height = 1,
+		})
+		vim.api.nvim_buf_delete(buf, { force = true })
+	]])
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end)
+
+it("keeps the main window when its buffer is force deleted from a side integration", function()
+	child.lua([[
+		require("zen").setup({ left = { { filetype = "*", min_width = 46 }, { filetype = "custom-sidebar" } } })
+	]])
+	child.cmd("edit test.lua")
+	child.lua([[
+		local buf = vim.api.nvim_get_current_buf()
+		local sidebar = vim.api.nvim_create_buf(false, true)
+		vim.bo[sidebar].filetype = "custom-sidebar"
+		vim.api.nvim_open_win(sidebar, true, { split = "left", win = -1 })
+		vim.api.nvim_buf_delete(buf, { force = true })
+	]])
+
+	Helpers.expect.layout(child, {
+		type = "row",
+		children = {
+			{ type = "leaf", filetype = "custom-sidebar", buftype = "nofile", width = 46, height = 50 },
+			{ type = "leaf", filetype = "", buftype = "", width = 146, height = 50 },
+			{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 50 },
+		},
+	})
+end)
+
 describe("cursor does not enter zen side buffers", function()
 	before_each(function()
 		child.restart({ "-u", "tests/scripts/init_with_zen.lua" })

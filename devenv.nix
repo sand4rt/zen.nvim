@@ -1,9 +1,19 @@
 { pkgs, ... }:
 {
+  languages.lua = {
+    enable = true;
+    package = pkgs.luajit;
+  };
+
   packages = with pkgs; [
-    lua-language-server
     stylua
+    luajitPackages.luacheck
     gnumake
     git
   ];
+
+  tasks."zen:check" = {
+    exec = "make test typecheck format-check lint";
+    before = [ "devenv:enterTest" ];
+  };
 }

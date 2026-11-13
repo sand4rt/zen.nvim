@@ -133,39 +133,11 @@ local function close_side_buffer(position)
 	end
 end
 
----@param filetypes string[]
+---@param filetype string
+---@param positions ("top" | "right" | "bottom" | "left")[]
 ---@return boolean
-local function filetypes_visible(filetypes)
-	for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-		local buf_id = vim.api.nvim_win_get_buf(win_id)
-		if vim.api.nvim_buf_is_valid(buf_id) and vim.api.nvim_buf_is_loaded(buf_id) then
-			if vim.tbl_contains(filetypes, vim.api.nvim_get_option_value("filetype", { buf = buf_id })) then
-				return true
-			end
-		end
-	end
-	return false
-end
-
----@param filetypes string[]
----@param type_to_remove string
-local function remove_file_type(filetypes, type_to_remove)
-	for i, filetype in ipairs(filetypes) do
-		if filetype == type_to_remove then
-			table.remove(filetypes, i)
-			break
-		end
-	end
-end
-
----@param buf number
----@return boolean
-local function is_buff_integration(buf)
-	local filetype = vim.api.nvim_get_option_value("filetype", { buf = buf })
-	if filetype == "zen-left" or filetype == "zen-right" then
-		return true
-	end
-	for _, position in ipairs({ "left", "right", "top", "bottom" }) do
+local function is_integration_filetype(filetype, positions)
+	for _, position in ipairs(positions) do
 		for _, integration in ipairs(opts[position] or {}) do
 			---@diagnostic disable-next-line: undefined-field
 			if type(integration) == "table" and is_filetype(filetype, integration.filetype) then
@@ -176,23 +148,34 @@ local function is_buff_integration(buf)
 	return false
 end
 
----@return table
-local function get_editable_files()
-	local editable_files = {}
-	local windows = vim.api.nvim_list_wins()
-	for _, win in ipairs(windows) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		if not is_buff_integration(buf) then -- is an actual file
-			editable_files[buf] = buf
-		end
-	end
-	return editable_files
+---@param buf number
+---@return boolean
+local function is_buff_integration(buf)
+	local filetype = vim.bo[buf].filetype
+	return filetype == "zen-left"
+		or filetype == "zen-right"
+		or is_integration_filetype(filetype, { "left", "right", "top", "bottom" })
 end
 
 ---@param win_id number
 ---@return boolean
 local function is_popup_window(win_id)
 	return vim.api.nvim_win_get_config(win_id).relative ~= ""
+end
+
+---@param position "left" | "right"
+---@param closing_win number window about to close, left out of the check
+---@return boolean
+local function side_visible(position, closing_win)
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		if win ~= closing_win and not is_popup_window(win) then
+			local filetype = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
+			if filetype == "zen-" .. position or is_integration_filetype(filetype, { position }) then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 ---@param closing_win? number window about to close, left out of the count
@@ -419,6 +402,49 @@ local function resize_current_integration(buf)
 	end
 end
 
+---@param tab number
+---@param closing_win? number window about to close, left out of the count
+---@return boolean
+local function has_main_window(tab, closing_win)
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+		if win ~= closing_win and not is_popup_window(win) and not is_buff_integration(vim.api.nvim_win_get_buf(win)) then
+			return true
+		end
+	end
+	return false
+end
+
+--- Deleting the main buffer while another window has focus (e.g. a file
+--- explorer deleting the open file) closes the main window outright, leaving
+--- only side windows. Put an empty main window back between them.
+---@param tab number
+---@param closing_win number window about to close, ignored as main and anchor
+local function restore_main_window(tab, closing_win)
+	if vim.v.exiting ~= vim.NIL or not vim.api.nvim_tabpage_is_valid(tab) or has_main_window(tab, closing_win) then
+		return
+	end
+
+	local anchor, split
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+		if win ~= closing_win and not is_popup_window(win) then
+			local col = vim.api.nvim_win_get_position(win)[2]
+			if col == 0 and vim.api.nvim_win_get_width(win) < vim.o.columns then
+				anchor, split = win, "right"
+				break
+			elseif not anchor then
+				anchor, split = win, "left"
+			end
+		end
+	end
+	if not anchor then
+		return
+	end
+
+	local buf = vim.api.nvim_create_buf(true, false)
+	vim.bo[buf].bufhidden = "wipe"
+	vim.api.nvim_open_win(buf, false, { split = split, win = anchor })
+end
+
 ---@param options? Config
 local function setup(options)
 	-- Default splitting will cause your main splits to jump when opening an integration.
@@ -571,6 +597,11 @@ local function setup(options)
 				return
 			end
 
+			-- Restore within the close so no frame is drawn without a main window.
+			if not is_buff_integration(vim.fn.winbufnr(win_id)) then
+				restore_main_window(vim.api.nvim_win_get_tabpage(win_id), win_id)
+			end
+
 			-- `WinClosed` fires just before the window is removed, so the stacks
 			-- still have their pre-close heights here. Capture them and reclaim
 			-- any slack from `WinResized`, which fires once the close has settled.
@@ -585,23 +616,17 @@ local function setup(options)
 				end,
 			})
 
-			local buf_id = vim.fn.winbufnr(win_id)
-			local file_type = vim.api.nvim_get_option_value("filetype", { buf = buf_id })
 			-- do not recreate when multiple vsplits are active
 			if vim.tbl_count(get_vsplits(win_id)) >= 2 then
 				return
 			end
 
-			local left_file_types = { "fugitiveblame", "fyler_finder", "undotree", "dbui", "zen-left" }
-			remove_file_type(left_file_types, file_type)
-			if not filetypes_visible(left_file_types) then
+			if not side_visible("left", win_id) then
 				current_tab_state().left = create_window("left")
 				vim.cmd("wincmd l")
 			end
 
-			local right_file_types = { "dapui_scopes", "neotest-summary", "zen-right" }
-			remove_file_type(right_file_types, file_type)
-			if not filetypes_visible(right_file_types) then
+			if not side_visible("right", win_id) then
 				current_tab_state().right = create_window("right")
 				vim.cmd("wincmd h")
 			end
