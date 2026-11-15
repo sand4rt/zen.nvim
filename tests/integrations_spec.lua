@@ -228,15 +228,15 @@ describe("top integration", function()
 			end
 
 			child.lua([[
-			local tmpdir = vim.fn.tempname()
-			vim.fn.mkdir(tmpdir, "p")
-			vim.fn.system({ "git", "init", tmpdir })
-			vim.fn.system({ "git", "-C", tmpdir, "config", "user.name", "Test" })
-			vim.fn.system({ "git", "-C", tmpdir, "config", "user.email", "test@test.com" })
-			vim.fn.system({ "git", "-C", tmpdir, "commit", "--allow-empty", "-m", "initial" })
-			vim.fn.writefile({ "hello" }, tmpdir .. "/file")
-			vim.cmd("edit " .. tmpdir .. "/file")
-		]])
+				local tmpdir = vim.fn.tempname()
+				vim.fn.mkdir(tmpdir, "p")
+				vim.fn.system({ "git", "init", tmpdir })
+				vim.fn.system({ "git", "-C", tmpdir, "config", "user.name", "Test" })
+				vim.fn.system({ "git", "-C", tmpdir, "config", "user.email", "test@test.com" })
+				vim.fn.system({ "git", "-C", tmpdir, "commit", "--allow-empty", "-m", "initial" })
+				vim.fn.writefile({ "hello" }, tmpdir .. "/file")
+				vim.cmd("edit " .. tmpdir .. "/file")
+			]])
 
 			child.cmd("Git")
 
@@ -464,6 +464,30 @@ describe("right integration", function()
 		})
 	end)
 
+	it("keeps the stack height when a side integration is closed and reopened", function()
+		child.cmd("Git")
+		child.type_keys("<Ignore>")
+		child.cmd("Fyler kind=split_left_most")
+		child.cmd("close")
+		child.cmd("Fyler kind=split_left_most")
+		child.type_keys("<Ignore>")
+
+		Helpers.expect.layout(child, {
+			type = "col",
+			children = {
+				{ type = "leaf", filetype = "fugitive", buftype = "nowrite", width = 240, height = 25 },
+				{
+					type = "row",
+					children = {
+						{ type = "leaf", filetype = "fyler_finder", buftype = "acwrite", width = 46, height = 24 },
+						{ type = "leaf", filetype = "", buftype = "", width = 146, height = 24 },
+						{ type = "leaf", filetype = "zen-right", buftype = "nofile", width = 46, height = 24 },
+					},
+				},
+			},
+		})
+	end)
+
 	it("opening an integration with table filetype", function()
 		child.lua([[require("dapui").open()]])
 
@@ -473,27 +497,70 @@ describe("right integration", function()
 				{
 					type = "col",
 					children = {
+						{ type = "leaf", filetype = "", buftype = "", width = 193, height = 39 },
+						{
+							type = "row",
+							children = {
+								{ type = "leaf", filetype = "dapui_console", buftype = "nofile", width = 96, height = 10 },
+								{ type = "leaf", filetype = "dap-repl", buftype = "prompt", width = 96, height = 10 },
+							},
+						},
+					},
+				},
+				{
+					type = "col",
+					children = {
 						{ type = "leaf", filetype = "dapui_watches", buftype = "prompt", width = 46, height = 12 },
 						{ type = "leaf", filetype = "dapui_stacks", buftype = "nofile", width = 46, height = 12 },
 						{ type = "leaf", filetype = "dapui_breakpoints", buftype = "nofile", width = 46, height = 12 },
 						{ type = "leaf", filetype = "dapui_scopes", buftype = "nofile", width = 46, height = 11 },
 					},
 				},
-				{
-					type = "col",
-					children = {
-						{ type = "leaf", filetype = "", buftype = "", width = 193, height = 39 },
-						{
-							type = "row",
-							children = {
-								{ type = "leaf", filetype = "dapui_console", buftype = "nofile", width = 99, height = 10 },
-								{ type = "leaf", filetype = "dap-repl", buftype = "prompt", width = 93, height = 10 },
-							},
+			},
+		})
+	end)
+end)
+
+describe("bottom integration with a filetype list", function()
+	local expected = {
+		type = "col",
+		children = {
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "zen-left", buftype = "nofile", width = 46, height = 39 },
+					{ type = "leaf", filetype = "", buftype = "", width = 146, height = 39 },
+					{
+						type = "col",
+						children = {
+							{ type = "leaf", filetype = "dapui_watches", buftype = "prompt", width = 46, height = 9 },
+							{ type = "leaf", filetype = "dapui_stacks", buftype = "nofile", width = 46, height = 9 },
+							{ type = "leaf", filetype = "dapui_breakpoints", buftype = "nofile", width = 46, height = 9 },
+							{ type = "leaf", filetype = "dapui_scopes", buftype = "nofile", width = 46, height = 9 },
 						},
 					},
 				},
 			},
-		})
+			{
+				type = "row",
+				children = {
+					{ type = "leaf", filetype = "dap-repl", buftype = "prompt", width = 120, height = 10 },
+					{ type = "leaf", filetype = "dapui_console", buftype = "nofile", width = 119, height = 10 },
+				},
+			},
+		},
+	}
+
+	it("places the windows side by side in the order of the list", function()
+		child.lua([[
+			require("zen").setup({ bottom = { { filetype = { "dap-repl", "dapui_console" } } } })
+			require("dapui").open()
+		]])
+		Helpers.expect.layout(child, expected)
+
+		child.lua([[require("dapui").close()]])
+		child.lua([[require("dapui").open()]])
+		Helpers.expect.layout(child, expected)
 	end)
 end)
 
